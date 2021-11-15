@@ -4,7 +4,7 @@ import sys
 import subprocess
 
 # add necessary packages to the packages array
-packages = ['opencv-contrib-python', 'argparse', 'numpy', 'imutils']
+packages = ['opencv-contrib-python', 'argparse', 'numpy', 'imutils', 'time']
 
 # implement pip as a subprocess:
 subprocess.check_call([sys.executable, '-m', 'pip', 'upgrade', 'pip'])
