@@ -97,6 +97,9 @@ def find_closest_object(frame):
 	except KeyError:
 		print(KeyError)
 
+def find_quadrant(robot, object):
+	
+
 def main(cam_src):
 
 	global distanceRatio
