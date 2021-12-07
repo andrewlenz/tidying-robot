@@ -154,15 +154,20 @@ def main(cam_src):
 
 	print("Starting video stream")
 	vs = VideoStream(src=cam_src)
+	print("VideoStream done")
 	sender = imagezmq.ImageSender(connect_to="tcp://localhost:5555")
+	print("sender done")
 	cam_id = socket.gethostname()
+	print("Cam_id done")
 
 	vs.start()
 	time.sleep(2.0)
 
 	print("video started")
 	start_time = time.time()
-	asyncio.run(display_writer.main())
+
+	robot = display_writer.RobotController()
+
 
 	# thread = Thread(target = display_writer.run_main, args = ())
 	# thread.start()
@@ -170,6 +175,10 @@ def main(cam_src):
 	new_task = ARTags([3,5,4,6])
 
 	while True:
+		# BLE setup
+		asyncio.run(robot.setup())
+
+
 		new_task.frame = vs.read()
 		new_task.frame = imutils.resize(new_task.frame, width=1000)
 
@@ -185,7 +194,7 @@ def main(cam_src):
 			if len(new_task.object_order) > 0:
 				robot1_angle = new_task.angle_between_markers(new_task.coordinate_dict[new_task.robot1][1], new_task.coordinate_dict[object_allocate[new_task.robot1]][1], new_task.coordinate_dict[new_task.robot1][2])
 				print(robot1_angle)
-				asyncio.run(display_writer.send_angle(robot1_angle))
+				asyncio.run(robot.send_angle(robot1_angle))
 
 				# thread1 = Thread(target = display_writer.send_angle, args = (angle1,))
 				# thread1.start()
