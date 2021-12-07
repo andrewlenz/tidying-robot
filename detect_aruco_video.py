@@ -144,6 +144,17 @@ class ARTags:
 
 # def check_obstacle(frame, robot, object):
 # 	global obstacleAhead
+
+def setup(cam_src):
+	vs = VideoStream(src=cam_src)
+	sender = imagezmq.ImageSender(connect_to="tcp://localhost:5555")
+	cam_id = socket.gethostname()
+	vs.start()
+	time.sleep(2.0)
+
+	print("video started")
+	start_time = time.time()
+	return vs, sender, cam_id
 	
 
 def main(cam_src):
@@ -151,20 +162,7 @@ def main(cam_src):
 
 	marker_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_50)
 	marker_params = cv2.aruco.DetectorParameters_create()
-
-	print("Starting video stream")
-	vs = VideoStream(src=cam_src)
-	print("VideoStream done")
-	sender = imagezmq.ImageSender(connect_to="tcp://localhost:5555")
-	print("sender done")
-	cam_id = socket.gethostname()
-	print("Cam_id done")
-
-	vs.start()
-	time.sleep(2.0)
-
-	print("video started")
-	start_time = time.time()
+	vs, sender, cam_id = setup(cam_src)
 
 	robot = display_writer.RobotController()
 
@@ -178,8 +176,16 @@ def main(cam_src):
 		# BLE setup
 		asyncio.run(robot.setup())
 
+		# print("BLE setup done")
+
 
 		new_task.frame = vs.read()
+		if new_task.frame is None:
+			print("reading video stream failed, trying again")
+			vs.stop()
+			setup(cam_src)
+			continue
+
 		new_task.frame = imutils.resize(new_task.frame, width=1000)
 
 		new_task.update_corners(marker_dict, marker_params)
@@ -190,7 +196,7 @@ def main(cam_src):
 			print("robot 1 is closest to object", object_allocate[new_task.robot1])
 			print("robot 2 is closest to object", object_allocate[new_task.robot2])
 
-		if iter_count % 1000 == 0:
+		if iter_count % 50 == 0:
 			if len(new_task.object_order) > 0:
 				robot1_angle = new_task.angle_between_markers(new_task.coordinate_dict[new_task.robot1][1], new_task.coordinate_dict[object_allocate[new_task.robot1]][1], new_task.coordinate_dict[new_task.robot1][2])
 				print(robot1_angle)

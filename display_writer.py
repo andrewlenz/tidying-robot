@@ -7,8 +7,8 @@ from ble_utils import parse_ble_args, handle_sigint
 # timeout = args.timeout
 # handle_sigint()
 
-DISPLAY_SERVICE_UUID = "32e69998-2b22-4db5-a914-43ce41986c70"
-DISPLAY_CHAR_UUID    = "32e69999-2b22-4db5-a914-43ce41986c70"
+ANGLE_SERVICE_UUID = "32e69998-2b22-4db5-a914-43ce41986c70"
+ANGLE_CHAR_UUID    = "32e61999-2b22-4db5-a914-43ce41986c70"
 address = "C0:98:E5:49:00:05"
 # address = addr.lower()
 
@@ -29,27 +29,33 @@ class RobotController():
     async def send_angle(self, angle):
         angle = str(angle)[:5]
         print(angle)
+        if not self.client.is_connected():
+            self.setup()
+            print("BLE setup done before angle")
         try:
-            await self.client.write_gatt_char(DISPLAY_CHAR_UUID, bytes(angle, "utf-8"))
+            await self.client.write_gatt_char(ANGLE_CHAR_UUID, bytes(angle, "utf-8"))
         except Exception as e:
             print(f"SEND ANGLE ERROR:\t{e}")
 
     async def setup(self):
-        # if not self.client.is_connected():
-        try:
-            await self.client.connect()
-            # async with self.client as client:
-                # model_number = await client.read_gatt_char(DISPLAY_CHAR_UUID)
-            print("Connected to device")
-        # robot = RobotController(client)
+        if not self.client.is_connected():
             try:
-                print("Robot control enabled")
-            except KeyboardInterrupt as e:
-                sys.exit(0)
-            finally: 
-                await self.client.disconnect()
-        except BleakError as e:
-            print(f"not found:\t{e}")        
+                await self.client.connect()
+                # async with self.client as client:
+                    # model_number = await client.read_gatt_char(DISPLAY_CHAR_UUID)
+                print("Connected to device")
+            # robot = RobotController(client)
+                try:
+                    print("Robot control enabled")
+                except KeyboardInterrupt as e:
+                    sys.exit(0)
+                # finally: 
+                #     await self.client.disconnect()
+            except BleakError as e:
+                print(f"not found:\t{e}")
+        else:
+            # print("Already connected")
+            return     
 
 # if __name__ == "__main__":
 #     while True:
