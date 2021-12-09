@@ -53,7 +53,7 @@ static simple_ble_service_t angle_service = {{
                 0xB5,0x4D,0x22,0x2B,0x98,0x99,0xE6,0x32}
 }};
 
-static simple_ble_char_t angle_char = {.uuid16 = 0x9999};
+static simple_ble_char_t angle_state_char = {.uuid16 = 0x9999};
 static char angle[12] = "test\0";
 /*******************************************************************************
  *   State for this application
@@ -62,10 +62,12 @@ static char angle[12] = "test\0";
 simple_ble_app_t* simple_ble_app;
 float turn_angle = 0;
 
-
 void ble_evt_write(ble_evt_t const* p_ble_evt) {
-    if (simple_ble_is_char_event(p_ble_evt, &angle_char)) {
+    if (simple_ble_is_char_event(p_ble_evt, &angle_state_char)) {
+      printf("incoming angle\n");
+      display_write(angle, DISPLAY_LINE_0);
       turn_angle = (float) atof(angle);
+      printf("turn angle %f\n", turn_angle);
     }
 }
 
@@ -148,7 +150,7 @@ int main(void) {
 
   simple_ble_add_characteristic(1, 1, 0, 0,
       sizeof(char) * 12, (char*)&angle,
-      &angle_service, &angle_char);
+      &angle_service, &angle_state_char);
 
   // Start Advertising
   simple_ble_adv_only_name();
@@ -164,9 +166,7 @@ int main(void) {
   lsm9ds1_measurement_t initial_gyro;
   char buf[16];
   float backup;
-  float saved_angle;
   states state = OFF;
-  int obstacle;
 
 
   // loop forever, running state machine
@@ -177,62 +177,73 @@ int main(void) {
 
     // TODO: complete state machine
     switch(state) {
-
       case OFF: {
         print_state(state);
-        // received angle over BLE connection
-        if (fabs(turn_angle) > 0) { //angle received
+
+        // transition logic
+        if (fabs(turn_angle) > 0) {
           state = TURNING;
+          printf("stopping integration\n");
+          display_write("stop gyro", DISPLAY_LINE_0);
+          // nrf_delay_ms(500);
           lsm9ds1_stop_gyro_integration();
+          // printf("stopped gyro\n");
+          // display_write("Stopped gyro", DISPLAY_LINE_0);
+          // nrf_delay_ms(500);
           lsm9ds1_start_gyro_integration();
-          saved_angle = turn_angle;
+          // display_write("go to turning", DISPLAY_LINE_0);
+          // nrf_delay_ms(500);
+          //state = NEWSTATE;
         } else {
           state = OFF;
+          // perform state-specific actions here
           kobukiDriveDirect(0, 0);
         }
-        break;
+        break; // each case needs to end with break!
       }
-
       case TURNING: {
+        display_write("in turning", DISPLAY_LINE_1);
+        // nrf_delay_ms(500);
         print_state(state);
         initial_gyro = lsm9ds1_read_gyro_integration();
+        display_write("read initial gyro", DISPLAY_LINE_0);
+        // nrf_delay_ms(4000);
+        // display_write("Finished", DISPLAY_LINE_1);
         snprintf(buf, 16, "%f", fabs(initial_gyro.z_axis));
         display_write(buf, DISPLAY_LINE_1);
 
-        if (is_button_pressed(&sensors)) { // turn off
+        if (is_button_pressed(&sensors)) {
+          state = OFF;
           kobukiDriveDirect(0,0); 
           nrf_delay_ms(100);
           kobukiSensorPoll(&sensors);
-          state = OFF;
+          break;
+        }
+        else {
+          if (fabs(initial_gyro.z_axis) >=  turn_angle){
+            lsm9ds1_stop_gyro_integration();
+            kobukiDriveDirect(0,0);
+            display_write("TO DRIVE", DISPLAY_LINE_1);
+            nrf_delay_ms(500);
+            kobukiSensorPoll(&sensors);
+            state = DRIVING; 
+            starting_value = sensors.rightWheelEncoder;
+            displacement = 0;
+            turn_angle = 0;
 
-        } else if (fabs(initial_gyro.z_axis) >= saved_angle) { // reached angle; finished turning
-          lsm9ds1_stop_gyro_integration();
-          kobukiDriveDirect(0,0);
-          display_write("TO DRIVE", DISPLAY_LINE_1);
-          nrf_delay_ms(500);
-          kobukiSensorPoll(&sensors);
-          starting_value = sensors.rightWheelEncoder;
-          displacement = 0;
-          state = DRIVING; 
-
-        } else if (saved_angle >= 0) {
-          kobukiDriveDirect(70,-70); // keep turning right
-          snprintf(buf, 16, "%f", fabs(initial_gyro.z_axis));
-          display_write(buf, DISPLAY_LINE_1);
-          state = TURNING;
-
-       } else {
-          kobukiDriveDirect(-70, 70); // keep turning left
-          snprintf(buf, 16, "%f", fabs(initial_gyro.z_axis));
-          display_write(buf, DISPLAY_LINE_1);
-          state = TURNING;
+            break;
+        } else {
+            kobukiDriveDirect(50,-50);
+            snprintf(buf, 16, "%f", fabs(initial_gyro.z_axis));
+            display_write(buf, DISPLAY_LINE_1);
+            state = TURNING;
+            break;
+          }
        }
-       break;
      }
      case DRIVING: {
-        // transition logics
+        // transition logic
         displacement = measure_distance(sensors.rightWheelEncoder, starting_value);
-
         if (is_button_pressed(&sensors)) {
           state = OFF;
           kobukiDriveDirect(0,0);  
@@ -240,31 +251,22 @@ int main(void) {
           display_write(buf, DISPLAY_LINE_1);
           nrf_delay_ms(100);
           kobukiSensorPoll(&sensors);
-
-        } else if (displacement >= 1) { // test purposes -- drove far enough
+      }
+        else if (displacement >= 1) {
           state = OFF;
           kobukiDriveDirect(0,0);
           display_write("FINISHED", DISPLAY_LINE_1);
           nrf_delay_ms(100);
           kobukiSensorPoll(&sensors);
-
-        } else if (fabs(turn_angle) > 20) { //angle was updated
-          saved_angle = turn_angle;
-          kobukiDriveDirect(0,0);  
-          state = TURNING;
-          nrf_delay_ms(100);
-          kobukiSensorPoll(&sensors);
-          lsm9ds1_stop_gyro_integration();
-          lsm9ds1_start_gyro_integration();
-
-        } else { // drive
+        } else {
+          // perform state-specific actions here
           kobukiDriveDirect(75,75);
           display_write("DRIVING", DISPLAY_LINE_0);
           snprintf(buf, 16, "%f", displacement);
           display_write(buf, DISPLAY_LINE_1);
           state = DRIVING;
         }
-        break;
+        break; // each case needs to end with break!
       }
    }
   }
