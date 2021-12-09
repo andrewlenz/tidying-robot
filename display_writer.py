@@ -9,7 +9,7 @@ from ble_utils import parse_ble_args, handle_sigint
 
 ANGLE_SERVICE_UUID = "32e69998-2b22-4db5-a914-43ce41986c70"
 ANGLE_CHAR_UUID    = "32e61999-2b22-4db5-a914-43ce41986c70"
-address = "C0:98:E5:49:00:05"
+address = "C0:98:E5:49:20:00"
 # address = addr.lower()
 
 LAB11 = 0x02e0
@@ -21,24 +21,34 @@ class RobotController():
         self.address = address
         self.commands = {"angle" : 0, "obstacle" : 7}
 
+    async def disconnect(self):
+        await self.client.disconnect()
     # def send_angle(self, angle):
     #     self.commands[angle] = 
 
     # # def send_obstacle
 
     async def send_angle(self, angle):
-        angle = str(angle)[:5]
+        # self.client = BleakClient(address)
+        angle = input("")
+
         print(angle)
-        if not self.client.is_connected():
-            self.setup()
+        if not self.client.is_connected:
+            await self.setup()
             print("BLE setup done before angle")
         try:
+            # i = await self.client.get_services()
+            # print(i.characteristics)
             await self.client.write_gatt_char(ANGLE_CHAR_UUID, bytes(angle, "utf-8"))
+        except BleakError as e:
+            print(f"BLEAK:\t{e}")
         except Exception as e:
             print(f"SEND ANGLE ERROR:\t{e}")
 
     async def setup(self):
-        if not self.client.is_connected():
+        # self.client = BleakClient(address)
+        # print(self.client.is_connected)
+        if not self.client.is_connected:
             try:
                 await self.client.connect()
                 # async with self.client as client:
@@ -54,7 +64,9 @@ class RobotController():
             except BleakError as e:
                 print(f"not found:\t{e}")
         else:
-            # print("Already connected")
+            # print("Was already connected, here are the services")
+            # i = await self.client.get_services()
+            # print(i.characteristics)
             return     
 
 # if __name__ == "__main__":

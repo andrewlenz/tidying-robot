@@ -159,13 +159,14 @@ def setup(cam_src):
 
 def main(cam_src):
 	iter_count = 0
-
+	
 	marker_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_50)
 	marker_params = cv2.aruco.DetectorParameters_create()
 	vs, sender, cam_id = setup(cam_src)
-
+	
 	robot = display_writer.RobotController()
-
+	# await robot.client.disconnect()
+	# await robot.client.connect()
 
 	# thread = Thread(target = display_writer.run_main, args = ())
 	# thread.start()
@@ -178,12 +179,13 @@ def main(cam_src):
 
 		# print("BLE setup done")
 
-
+	
 		new_task.frame = vs.read()
 		if new_task.frame is None:
 			print("reading video stream failed, trying again")
 			vs.stop()
-			setup(cam_src)
+			vs, sender, cami_id = setup(cam_src)
+			new_task.frame = vs.read()
 			continue
 
 		new_task.frame = imutils.resize(new_task.frame, width=1000)
@@ -210,6 +212,7 @@ def main(cam_src):
 
 		iter_count+=1
 		sender.send_image(cam_id, new_task.frame)
+	
 
 
 if __name__ == "__main__":
