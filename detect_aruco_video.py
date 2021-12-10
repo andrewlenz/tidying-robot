@@ -12,9 +12,17 @@ from math import acos, pi
 
 from threading import Thread
 import display_writer
+import robot_controller
 import asyncio
+import numpy as np
+
+# iter_count = 0
 
 class ARTags:
+
+	global robot1_angle
+	global robot2_angle
+	# global iter_count
 
 	def __init__(self, object_order):
 		self.ref_ID = 0
@@ -28,6 +36,7 @@ class ARTags:
 		self.obstacle_ahead = 0
 		self.frame = None
 		self.object1, self.object2, self.object3, self.object4 = self.object_order[0], self.object_order[1], self.object_order[2], self.object_order[3]
+		# iter_count = 0
 
 	def euclidean_dist(self, point1, point2):
 		'''
@@ -145,48 +154,35 @@ class ARTags:
 # def check_obstacle(frame, robot, object):
 # 	global obstacleAhead
 
+iter_count = 0;
+
 def setup(cam_src):
-	vs = VideoStream(src=cam_src)
+	'''
+	Sets up the camera to send footage to the server. 
+	'''
 	sender = imagezmq.ImageSender(connect_to="tcp://localhost:5555")
 	cam_id = socket.gethostname()
-	vs.start()
+	vs = VideoStream(src=cam_src, framerate=30).start()
 	time.sleep(2.0)
 
 	print("video started")
 	start_time = time.time()
 	return vs, sender, cam_id
-	
 
-def main(cam_src):
-	iter_count = 0
-	
-	marker_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_50)
-	marker_params = cv2.aruco.DetectorParameters_create()
-	vs, sender, cam_id = setup(cam_src)
-	
-	robot = display_writer.RobotController()
-	# await robot.client.disconnect()
-	# await robot.client.connect()
-
-	# thread = Thread(target = display_writer.run_main, args = ())
-	# thread.start()
-
-	new_task = ARTags([3,5,4,6])
-
+async def update_frame(cam_src, vs, sender, cam_id, new_task, marker_dict, marker_params, robot):
+	global iter_count
 	while True:
-		# BLE setup
-		asyncio.run(robot.setup())
+		print("UPDATE_FRAME")
+		new_vs = vs.read()
+		if np.array_equal(new_vs, new_task.frame):
+			print("camera not updating")
+		new_task.frame = new_vs
 
-		# print("BLE setup done")
-
-	
-		new_task.frame = vs.read()
 		if new_task.frame is None:
 			print("reading video stream failed, trying again")
 			vs.stop()
 			vs, sender, cami_id = setup(cam_src)
 			new_task.frame = vs.read()
-			continue
 
 		new_task.frame = imutils.resize(new_task.frame, width=1000)
 
@@ -202,8 +198,7 @@ def main(cam_src):
 			if len(new_task.object_order) > 0:
 				robot1_angle = new_task.angle_between_markers(new_task.coordinate_dict[new_task.robot1][1], new_task.coordinate_dict[object_allocate[new_task.robot1]][1], new_task.coordinate_dict[new_task.robot1][2])
 				print(robot1_angle)
-				asyncio.run(robot.send_angle(robot1_angle))
-
+				robot.edit_angle(robot1_angle)
 				# thread1 = Thread(target = display_writer.send_angle, args = (angle1,))
 				# thread1.start()
 				if len(new_task.object_order) > 1:
@@ -211,7 +206,43 @@ def main(cam_src):
 					print(robot2_angle)
 
 		iter_count+=1
-		sender.send_image(cam_id, new_task.frame)
+		# print("sending image")
+		sender.send_image(cam_id, new_vs)
+		# print("end of update frame while loop")
+		await asyncio.sleep(0)
+	
+async def main(cam_src):
+	marker_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_50)
+	marker_params = cv2.aruco.DetectorParameters_create()
+	vs, sender, cam_id = setup(cam_src)
+	
+	robot = display_writer.RobotController()
+	# await robot.disconnect()
+	await robot.client.connect()
+
+	# thread = Thread(target = display_writer.run_main, args = ())
+	# thread.start()
+
+	new_task = ARTags([3,5,4,6])
+	task_1 = asyncio.create_task(update_frame(cam_src, vs, sender, cam_id, new_task, marker_dict, marker_params, robot))
+	task_2 = asyncio.create_task(robot.send_angle())
+	print("Starting awaits")
+
+	while True:
+		# print("HI, doing loop")
+		await task_2
+		await task_1
+
+	print("exited loop for some reason")
+
+	# while True:
+	# 	# BLE setup
+	# 	# asyncio.run(robot.setup())
+
+	# 	# print("BLE setup done")
+
+	
+
 	
 
 
@@ -219,6 +250,6 @@ if __name__ == "__main__":
 	ap = argparse.ArgumentParser()
 
 	ap.add_argument("-s", "--cam_src", required=True,
-	 help="Source camera ID")
+	help="Source camera ID")
 	args = vars(ap.parse_args())
-	main(int(args["cam_src"]))
+	asyncio.run(main(int(args["cam_src"])))

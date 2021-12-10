@@ -1,3 +1,7 @@
+'''
+Sets up a server to which the footage is sent from the camera.
+'''
+
 import imagezmq
 import cv2
 
