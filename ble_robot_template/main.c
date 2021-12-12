@@ -35,6 +35,10 @@
 #include "ultrasonic.h"
 // #include "ultrasonic.c"
 
+#include "app_pwm.h"
+#include "nrfx_gpiote.h"
+#include "nrfx_saadc.h"
+
 // NRF_TWI_MNGR_DEF(twi_mngr_instance, 5, 0);
 
 // Intervals for advertising and connections
@@ -79,19 +83,64 @@ float turn_angle = 0;
 // I2C manager
 NRF_TWI_MNGR_DEF(twi_mngr_instance, 5, 0);
 
+//SERVO motor global variables
+APP_PWM_INSTANCE(PWM1, 1);
+// APP_PWM_INSTANCE(PWM2, 0);
+
+#define  SERVO_PIN_GRIPPER   BUCKLER_SD_MISO
+#define  SERVO_PIN_RAISER   BUCKLER_SD_MOSI
+uint32_t pinIn = BUCKLER_GROVE_A0;
+#define TIME_PERIOD  20000 // 20 milliseconds
+bool picked = false;
+
+
+static void pwm_init() {
+  // a variable to hold err_code value
+  ret_code_t err_code1;
+  // ret_code_t err_code2;
+
+//  create a pwm config struct and pass it the default configurations along with the pin number for pwm and period in microseconds
+// here we have configured one channel, we can configure max up to two channels per pwm instance in this library, if we use two channels then we need to pass two pins
+  app_pwm_config_t pwm_cfg1 = APP_PWM_DEFAULT_CONFIG_2CH(TIME_PERIOD, SERVO_PIN_GRIPPER, SERVO_PIN_RAISER);
+  printf("00");
+  // app_pwm_config_t pwm_cfg2 = APP_PWM_DEFAULT_CONFIG_1CH(TIME_PERIOD, SERVO_PIN_RAISER);
+
+// change the pwm polarity by setting this value so that logic high value is given as active signal and duty is set for the logic high signal
+// we can change it to give the active low signal as well for manipulating the logic low duty
+  pwm_cfg1.pin_polarity[0] = APP_PWM_POLARITY_ACTIVE_HIGH;
+  pwm_cfg1.pin_polarity[1] = APP_PWM_POLARITY_ACTIVE_HIGH;
+  printf("11");
+// Initialize the pwm and pass it the intance, configurations and handler, we can also write NULL if we don't want to use the handler 
+  err_code1 = app_pwm_init(&PWM1, &pwm_cfg1, NULL);
+  printf("22");
+  // err_code2 = app_pwm_init(&PWM2, &pwm_cfg2, NULL);
+  APP_ERROR_CHECK(err_code1);// check if any error occurred during initialization
+  // APP_ERROR_CHECK(err_code2);
+  printf("33");
+// enable the pwm signal so that the pwm is started on the specified pin
+  app_pwm_enable(&PWM1);
+  // app_pwm_enable(&PWM2);
+  printf("44");
+}
+
+bool getPressure(float* pressure) {
+  *pressure = nrf_gpio_pin_read(pinIn);
+  return true;
+}
 
 //ble stuff
 void ble_evt_write(ble_evt_t const* p_ble_evt) {
 	display_write("BLE WRITE", DISPLAY_LINE_1);
     // if (simple_ble_is_char_event(p_ble_evt, &angle_char)) {
-			printf("turn angle updated\n");
+			// printf("turn angle updated\n");
       turn_angle = (float) atof(angle);
-      printf("turn angle:%f\n", turn_angle);
-      printf(angle);
+      printf("new turn angle:%f\n", turn_angle);
+      // print("saved angle: %f\n", saved_angle);
+      // printf(angle);
       memset(angle, 0, 12);
-      char buf[16] = "";
-      snprintf(buf, 16, "%f", turn_angle);
-      display_write(buf, DISPLAY_LINE_0);
+      // char buf[16] = "";
+      // snprintf(buf, 16, "%f", turn_angle);
+      // display_write(buf, DISPLAY_LINE_1);
     // }
 }
 
@@ -216,6 +265,7 @@ int main(void) {
     .mode = NRF_DRV_SPI_MODE_2,
     .bit_order = NRF_DRV_SPI_BIT_ORDER_MSB_FIRST
   };
+  
 
   ret_code_t error_code = nrf_drv_spi_init(&spi_instance, &spi_config, NULL, NULL);
   APP_ERROR_CHECK(error_code);
@@ -223,15 +273,23 @@ int main(void) {
   display_write("Hello, Human!", DISPLAY_LINE_0);
   printf("Display initialized!\n");
 
+  printf("Will setup servos now\n");
+  pwm_init();
+
 	// initialize i2c master (two wire interface)
   nrf_drv_twi_config_t i2c_config = NRF_DRV_TWI_DEFAULT_CONFIG;
   i2c_config.scl = BUCKLER_SENSORS_SCL;
   i2c_config.sda = BUCKLER_SENSORS_SDA;
   i2c_config.frequency = NRF_TWIM_FREQ_100K;
+  printf("aa");
   error_code = nrf_twi_mngr_init(&twi_mngr_instance, &i2c_config);
+  printf("bb");
   APP_ERROR_CHECK(error_code);
+  printf("cc");
   lsm9ds1_init(&twi_mngr_instance);
+  printf("dd");
   printf("IMU initialized!\n");
+
 
   // Setup BLE
   display_write("BLE Setup", DISPLAY_LINE_0);
@@ -269,7 +327,7 @@ int main(void) {
   ultras_virtual_timer_init();
 
 
-  printf("entering while loop\n");
+  printf("finished ble setup\n");
   // display_write("measuring\n", DISPLAY_LINE_0);
   // loop forever
 
@@ -285,7 +343,12 @@ int main(void) {
   float ultra_dist;
   wait_cases wait_case;
 
+  // Set up servo and pressure code
+  
 
+  float pressure;
+  nrf_gpio_pin_dir_set(pinIn, NRF_GPIO_PIN_DIR_INPUT);
+  printf("finished pwn init\n");
   // loop forever, running state machine
   while (1) {
     // power_manage();
@@ -302,23 +365,30 @@ int main(void) {
         // received angle over BLE connection
         if (fabs(turn_angle) > 0) { //angle received
         	state = TURNING;
-        	// lsm9ds1_stop_gyro_integration();
+        	lsm9ds1_stop_gyro_integration();
         	lsm9ds1_start_gyro_integration();
         	saved_angle = turn_angle;
-        	turn_angle= 0;
+        	// turn_angle = 0;
         	printf("going to turning\n");
-        } else {
-        	state = OFF;
-        	kobukiDriveDirect(0, 0);
-        	// printf("just off\n");
         }
+        else {
+          state = OFF;
+          kobukiDriveDirect(0,0); 
+        }
+
+        //TEMP TRIAL CODE. FOR REAL CODE, UNCOMMENT THE STUFF ABOVE THIS
+
+        // state = DROP;
+        
         break;
       }
 
      	case TURNING: {
+        // printf("saved angle: %f\n", saved_angle);
 	      initial_gyro = lsm9ds1_read_gyro_integration();
 	      snprintf(buf, 16, "%f", fabs(initial_gyro.z_axis));
 	      display_write(buf, DISPLAY_LINE_1);
+        // printf("initial gyro z axis: %f\n, initial_gyro.z");
 
         if (is_button_pressed(&sensors)) { // turn off
         	kobukiDriveDirect(0,0); 
@@ -327,7 +397,8 @@ int main(void) {
 					state = OFF;
 					// starting_value2 = sensors.rightWheelEncoder;
 
-	      } else if (fabs(initial_gyro.z_axis) >= saved_angle) { // reached angle; finished turning
+	      } else if (fabs(initial_gyro.z_axis) >= fabs(saved_angle)) { // reached angle; finished turning
+          printf("done turning\n");
 					lsm9ds1_stop_gyro_integration();
 					kobukiDriveDirect(0,0);
 					nrf_delay_ms(100);
@@ -336,14 +407,18 @@ int main(void) {
 					displacement = 0;
 					state = DRIVING; 
 
+          //TEMP CHANGE
+          // turn_angle = 0;
+          // state = GRAB;
+
 	      } else if (saved_angle >= 0) {
-					kobukiDriveDirect(65, -65); // keep turning right
+					kobukiDriveDirect(40, -40); // keep turning right
 					snprintf(buf, 16, "%f", fabs(initial_gyro.z_axis));
 					display_write(buf, DISPLAY_LINE_1);
 					state = TURNING;
 
 	      } else {
-					kobukiDriveDirect(-65, 65); // keep turning left
+					kobukiDriveDirect(-40, 40); // keep turning left
 					snprintf(buf, 16, "%f", fabs(initial_gyro.z_axis));
 					display_write(buf, DISPLAY_LINE_1);
 					state = TURNING;
@@ -353,7 +428,7 @@ int main(void) {
 
       case DRIVING: {
 	      displacement = measure_distance(sensors.rightWheelEncoder, starting_value);
-	      printf("%f\n", displacement);
+	      // printf("%f\n", displacement);
         if (obstacle(sensors)) {
         	printf("obs\n");
           kobukiDriveDirect(0,0);
@@ -381,12 +456,12 @@ int main(void) {
 					kobukiSensorPoll(&sensors);
 
 
-	      } else if (fabs(turn_angle - saved_angle) > 3 && turn_angle > 0) { //angle was updated
-	      	printf("reangle\n");
+	      } else if (fabs(turn_angle) > 15) { //angle was updated
+	      	printf("reangle, new angle is: %f\n", turn_angle);
 					saved_angle = turn_angle;
 					turn_angle = 0;
 					kobukiDriveDirect(0,0);
-					// lsm9ds1_stop_gyro_integration();
+					lsm9ds1_stop_gyro_integration();
 					state = TURNING;
 					nrf_delay_ms(100);
 					kobukiSensorPoll(&sensors);
@@ -396,8 +471,8 @@ int main(void) {
 
 	      } else { // drive
 	      	// printf("driving now\n");
-					kobukiDriveDirect(65,65);
-					// display_write("DRIVING", DISPLAY_LINE_0);
+					kobukiDriveDirect(0, 0);
+					display_write("DRIVING", DISPLAY_LINE_0);
 					snprintf(buf, 16, "%f", displacement);
 					display_write(buf, DISPLAY_LINE_1);
 					state = DRIVING;
@@ -474,10 +549,68 @@ int main(void) {
 
       case GRAB: {
   	//GRAB STUFF I GUESS
+        //TEMP CODE TO TEST GRIPPERS AND PRESSURE SENSOR
+        if (picked && turn_angle > 0) {
+          saved_angle = turn_angle;
+          state = TURNING;
+        }
+        if (picked && turn_angle == 0) {
+          //Fully lowered
+          while(app_pwm_channel_duty_set(&PWM1, 1, 9.5) == NRF_ERROR_BUSY);
+          nrf_delay_ms(2400);
+
+          //Fully open
+          while(app_pwm_channel_duty_set(&PWM1, 0, 3) == NRF_ERROR_BUSY);
+          getPressure(&pressure);
+          printf("Pressure is ");
+          printf("%f",pressure);
+          nrf_delay_ms(2400);
+
+            //Fully raised
+          while(app_pwm_channel_duty_set(&PWM1, 1, 5) == NRF_ERROR_BUSY);
+          nrf_delay_ms(2400);
+
+          picked = false;
+          state = GRAB;
+        }
+        if (!picked) {
+          //Fully lowered
+          while(app_pwm_channel_duty_set(&PWM1, 1, 9.5) == NRF_ERROR_BUSY);
+          nrf_delay_ms(2400);
+       
+          //Fully open
+          while(app_pwm_channel_duty_set(&PWM1, 0, 3) == NRF_ERROR_BUSY);
+          getPressure(&pressure);
+          printf("Pressure is ");
+          printf("%f",pressure);
+          nrf_delay_ms(2400);
+
+          //Fully raised
+          while(app_pwm_channel_duty_set(&PWM1, 1, 5) == NRF_ERROR_BUSY);
+          nrf_delay_ms(2400);
+          picked = true;
+          state = GRAB;
+        }
+
 		  	break;
 		  }
 
 		  case DROP: {
+        // TEMP CODE TO SETUP GRIPPERS AND PRESSURE SENSOR
+        //Fully raised
+        printf("entered drop");
+      while(app_pwm_channel_duty_set(&PWM1, 1, 5) == NRF_ERROR_BUSY);
+      nrf_delay_ms(2400);
+
+      //Fully open
+      while(app_pwm_channel_duty_set(&PWM1, 0, 3) == NRF_ERROR_BUSY);
+      nrf_delay_ms(2400);
+      getPressure(&pressure);
+      printf("Pressure is ");
+      printf("%f",pressure);
+
+      state = GRAB;
+
 		  	break;
 		  }
 		  	  // wait for a response from central
