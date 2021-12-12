@@ -8,7 +8,22 @@ from ble_utils import parse_ble_args, handle_sigint
 # handle_sigint()
 
 ANGLE_SERVICE_UUID = "32e69998-2b22-4db5-a914-43ce41986c65"
-ANGLE_CHAR_UUID    = "32e61999-2b22-4db5-a914-43ce41986c65"
+
+# angle to turn
+ANGLE_CHAR_UUID = "32e61999-2b22-4db5-a914-43ce41986c65"
+
+# true to grab, else false
+GRAB_CHAR_UUID = "32e62999-2b22-4db5-a914-43ce41986c65"
+
+# true to deposit, else false
+DEPOSIT_CHAR_UUID = "32e63999-2b22-4db5-a914-43ce41986c65"
+
+# will read true if robot has picked up object
+PICK_CHAR_UUID = "32e64999-2b22-4db5-a914-43ce41986c65"
+
+# true if robot should stop driving
+ARRIVED_CHAR_UUID = "32e65999-2b22-4db5-a914-43ce41986c65"
+
 address = "C0:98:E5:49:20:00"
 # address = addr.lower()
 
@@ -23,10 +38,14 @@ class RobotController():
         self.commands = {"angle" : 0, "obstacle" : 7}
         self.new = False
         self.angle = 0
+        self.arrived = False
 
     def edit_angle(self, angle):
         self.angle = angle
         self.new = True
+
+    def edit_arrived(self):
+        self.arrived = True
 
     async def disconnect(self):
         if self.client.is_connected:
@@ -42,7 +61,7 @@ class RobotController():
             continue
         return True
 
-    async def send_angle(self):
+    async def send(self):
         while True:
         # self.client = BleakClient(address)
         # self.angle = angle
@@ -53,16 +72,22 @@ class RobotController():
                 await self.setup()
                 print("BLE setup done before angle")
             try:
+                # i = await self.client.get_services()
+                # print([i.characteristics[c].uuid for c in i.characteristics])
                 # await self.check_angle()
                 # i = await self.client.get_services()
                 # print(i.characteristics)
                 # print("angle: ", self.angle)
                 # print("self.new: ", self.new)
-                if self.angle != 0 and self.new == True:
+                if self.angle != 0 and self.new:
                     angle = str(self.angle)[:5]
                     await self.client.write_gatt_char(ANGLE_CHAR_UUID, bytes(angle, "utf-8"))
                     print("sent angle")
                     self.new = False
+                # if self.arrived:
+                #     arrived = str(self.arrived)
+                #     await self.client.write_gatt_char(ARRIVED_CHAR_UUID, bytes(arrived, "utf-8"))
+                #     self.arrived = False
                 await asyncio.sleep(0)
             except BleakError as e:
                 print(f"BLEAK:\t{e}")
@@ -91,8 +116,8 @@ class RobotController():
                 self.setup()
         else:
             # print("Was already connected, here are the services")
-            # i = await self.client.get_services()
-            # print(i.characteristics)
+            i = await self.client.get_services()
+            print(i.characteristics)
             return     
         return
 
