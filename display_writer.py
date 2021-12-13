@@ -13,39 +13,61 @@ ANGLE_SERVICE_UUID = "32e69998-2b22-4db5-a914-43ce41986c65"
 ANGLE_CHAR_UUID = "32e61999-2b22-4db5-a914-43ce41986c65"
 
 # true to grab, else false
-GRAB_CHAR_UUID = "32e62999-2b22-4db5-a914-43ce41986c65"
+# GRAB_CHAR_UUID = "32e62999-2b22-4db5-a914-43ce41986c65"
 
 # true to deposit, else false
-DEPOSIT_CHAR_UUID = "32e63999-2b22-4db5-a914-43ce41986c65"
+READY_CHAR_UUID = "32e63999-2b22-4db5-a914-43ce41986c65"
 
 # will read true if robot has picked up object
-PICK_CHAR_UUID = "32e64999-2b22-4db5-a914-43ce41986c65"
+PICKED_CHAR_UUID = "32e64999-2b22-4db5-a914-43ce41986c65"
 
 # true if robot should stop driving
 ARRIVED_CHAR_UUID = "32e65999-2b22-4db5-a914-43ce41986c65"
 
-address = "C0:98:E5:49:20:00"
+# true if robot should start driving cautiously
+DRIVE_CAUTIOUS_UUID = "32e66999-2b22-4db5-a914-43ce41986c65"
+
+address = "C0:98:E5:49:20:80"
 # address = addr.lower()
 
 LAB11 = 0x02e0
 
+# 12 bytes
+# bytes 0-4: angle
+# byte  5  : grab
+# byte  6  : deposit
+# byte  7  : pick
+# byte  8  : arrived
+# byte  9  : drive cautious
 
 
 class RobotController():
     def __init__(self):
-        self.client = BleakClient(address)
+        self.client = BleakClient(address, use_cached=False)
         self.address = address
         self.commands = {"angle" : 0, "obstacle" : 7}
         self.new = False
         self.angle = 0
-        self.arrived = False
+        self.wait = 0
+        # self.grab = 0
+        self.ready = 0
+        self.pick = 0
+        self.arrived = 0
+        self.drive_cautious = 0
 
-    def edit_angle(self, angle):
+    async def edit_angle(self, angle):
         self.angle = angle
         self.new = True
 
-    def edit_arrived(self):
-        self.arrived = True
+    async def edit_arrived(self):
+        self.arrived = 1
+        # print("edit", self.arrived)
+
+    async def edit_ready(self):
+        self.ready = 1
+
+    async def edit_drive_cautious(self):
+        self.drive_cautious = 1
 
     async def disconnect(self):
         if self.client.is_connected:
@@ -79,15 +101,29 @@ class RobotController():
                 # print(i.characteristics)
                 # print("angle: ", self.angle)
                 # print("self.new: ", self.new)
-                if self.angle != 0 and self.new:
-                    angle = str(self.angle)[:5]
-                    await self.client.write_gatt_char(ANGLE_CHAR_UUID, bytes(angle, "utf-8"))
-                    print("sent angle")
-                    self.new = False
+                # print(self.grab, self.deposit, self.pick, self.arrived)
+                # if self.angle != 0 and self.new:
+                #     self.send_val = ((self.send_val >> 32) << 32) | int(self.angle*100)
+                # if self.grab:
+                #     self.send_ops |= (1 << 0)
+                # if self.deposit:
+                #     self.send_ops |= (1 << 1)
+                # if self.pick:
+                #     self.send_ops |= (1 << 2)
                 # if self.arrived:
-                #     arrived = str(self.arrived)
-                #     await self.client.write_gatt_char(ARRIVED_CHAR_UUID, bytes(arrived, "utf-8"))
-                #     self.arrived = False
+                #     self.send_ops |= (1 << 3)
+                # print("sent info")
+                # print(hex(self.send_ops), hex(self.send_val))
+                angle = str(self.angle)[:5]
+                await self.client.write_gatt_char(ANGLE_CHAR_UUID, bytes(str(angle), "utf-8"))
+                await self.client.write_gatt_char(ARRIVED_CHAR_UUID, bytes(str(self.arrived), "utf-8"))
+                await self.client.write_gatt_char(READY_CHAR_UUID, bytes(str(self.ready), "utf-8"))
+                await self.client.write_gatt_char(DRIVE_CAUTIOUS_CHAR_UUID, bytes(str(self.drive_cautious), "utf-8"))
+                self.new = False
+                # self.grab = 0
+                self.deposit = 0
+                # self.ready = 0
+                self.arrived = 0
                 await asyncio.sleep(0)
             except BleakError as e:
                 print(f"BLEAK:\t{e}")
