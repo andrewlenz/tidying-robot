@@ -28,13 +28,11 @@ class ARTags:
 
     def __init__(self, object_order):
         self.ref_ID = 0
-        self.robot1 = 1
-        self.robot2 = 2
         self.object_order = object_order
         self.ref_marker_side_len = 6 #cm
-        self.distance_ratio = 0 #centimeter per pixel
+        self.distance_ratio = 0 #pixels per centimeter
         self.num_markers = 7
-        self.coordinate_dict = self.initialize_coord_dict()
+        self.coord_dict = self.initialize_coord_dict()
         self.obstacle_ahead = 0
         self.frame = None
         self.object1, self.object2, self.object3, self.object4 = self.object_order[0], self.object_order[1], self.object_order[2], self.object_order[3]
@@ -46,7 +44,7 @@ class ARTags:
             coord_dict[i] = [[(0,0),(0,0),(0,0),(0,0)], (0,0), (0,0)]
         return coord_dict
 
-    def euclidean_dist(self, point1, point2):
+    def euc_dist(self, point1, point2):
         '''
         Find the distance between POINT1 and POINT2, both of which are tuples (x,y) in unit pixels
         '''
@@ -60,12 +58,11 @@ class ARTags:
         Calculates the distance ratio, aka pixels to cm ratio
         Returns the CENTER of the REFERENCE MARKER
         '''
-        # (center, front_center) = self.identify_marker(self.ref_ID, color)
-        corners_list = self.coordinate_dict[self.ref_ID][0]
-        corners = corners_list.reshape((4, 2))
-        edge_len = self.euclidean_dist(corners[0], corners[1])
-        self.distance_ratio = self.ref_marker_side_len/edge_len
-        # return center
+        corners_list = self.coord_dict[self.ref_ID][0]
+        corners = np.reshape(corners_list, (4, 2))
+        edge_len = self.euc_dist(corners[0], corners[1])
+        self.distance_ratio = edge_len/self.ref_marker_side_len
+
 
     def identify_marker(self, marker_ID, color=(0, 255, 0)):
         '''
@@ -73,7 +70,7 @@ class ARTags:
         Make visual boxes around each marker 
         Return a tuple with CENTER and FRONT CENTRE coordinates
         '''
-        corners_list = self.coordinate_dict[marker_ID][0]
+        corners_list = self.coord_dict[marker_ID][0]
         corners = corners_list.reshape((4, 2))
         (top_left, top_right, bottom_right, bottom_left) = corners
 
@@ -105,9 +102,12 @@ class ARTags:
         Finds the ANGLE that the robot needs to turn to face in the direction of the object,
         using coorindate tuples FROM_CENTER, FROM_FRONT and TO_CENTER and the cosine rule
         '''
-        a = self.euclidean_dist(from_front, from_center)
-        b = self.euclidean_dist(from_front, to_front)
-        c = self.euclidean_dist(from_center, to_front)
+        # print(from_front)
+        # print(from_center)
+        a = self.euc_dist(from_front, from_center)
+        b = self.euc_dist(from_front, to_front)
+        c = self.euc_dist(from_center, to_front)
+        # print(a, b, c)
         angle = (acos((a**2 + b**2 - c**2) / (2*a*b)) * 180 / pi)
         # angle = 180 - (acos((a**2 + b**2 - c**2) / (2*a*b)) * 180 / pi)
         if ((from_front[0] - from_center[0]) * (to_front[1] - from_center[1])) - ((from_front[1] - from_center[1]) * (to_front[0] - from_center[0])) >= 0:
@@ -117,7 +117,7 @@ class ARTags:
 
     def angle_between_markers2(self, negative, intermediate_angle, from_to_distance):
 
-        c = sqrt(from_to_distance**2 + (15/self.distance_ratio)**2 - 2*from_to_distance*(15/self.distance_ratio)*cos(intermediate_angle*pi/180))
+        c = sqrt(from_to_distance**2 + (15*self.distance_ratio)**2 - 2*from_to_distance*(15*self.distance_ratio)*cos(intermediate_angle*pi/180))
         desired_angle = (asin((from_to_distance * sin(intermediate_angle*pi/180))/c))*180/pi
         if negative:
             return -desired_angle
@@ -129,7 +129,7 @@ class ARTags:
         '''
         MARKER_DICT is a dictionary of all the markers provided by the Aruco library. 
         MARKER_PARAMS is provided by the Aruco library as well.
-        Identifies all the markers, draws bounding boxes around them and updates the COORDINATE_DICT dictionary
+        Identifies all the markers, draws bounding boxes around them and updates the coord_dict dictionary
         '''
 
         # Corners and IDs only shows the AR tags that are visible at that instant
@@ -139,38 +139,30 @@ class ARTags:
             # flatten the ArUco IDs list
             ids = ids.flatten()
             # Therefore coordinate dict should also only have tags that are visible in the FRAME
-            #self.coordinate_dict = dict((idx, [corner]) for idx, corner in zip(ids, corners))
+            #self.coord_dict = dict((idx, [corner]) for idx, corner in zip(ids, corners))
             for idx, tag_corners in zip(ids, corners):
-                idx_value = self.coordinate_dict[idx]
+                idx_value = self.coord_dict[idx]
                 idx_value[0] = tag_corners
                 center, front_point = self.identify_marker(idx)
                 idx_value[1] = center
                 idx_value[2] = front_point
             self.identify_ref_marker()
 
-            # loop over the detected ArUCo corners
-            # for idx in range(0, self.num_markers):
-            #   if idx in ids:
-            #       center, front_point = self.identify_marker(idx)
-            #       idx_value = self.coordinate_dict[idx]
-            #       self.coordinate_dict[idx].append(center)
-            #       self.coordinate_dict[idx].append(front_point)
-                    # distance_idx_ref = euclidean_dist(ref_center, center)* distanceRatio #cm
 
-
-    def find_closest_object(self):
+    def assign_targets(self):
         '''
         Determine which OBJECT ROBOT1 and ROBOT2 should pick up first respectively, 
         depending on the order of the blocks and the distance between the robots and the blocks
+        assigns targets to the robots
         '''
         global dist_1
         global dist_2
 
         # Calculate the distance between the robots and the objects
-        dist_11 = self.euclidean_dist(self.coordinate_dict[self.robot1][1], self.coordinate_dict[self.object1][1])
-        dist_22 = self.euclidean_dist(self.coordinate_dict[self.robot2][1], self.coordinate_dict[self.object2][1])
-        dist_12 = self.euclidean_dist(self.coordinate_dict[self.robot1][1], self.coordinate_dict[self.object2][1])
-        dist_21 = self.euclidean_dist(self.coordinate_dict[self.robot2][1], self.coordinate_dict[self.object1][1])
+        dist_11 = self.euc_dist(self.coord_dict[self.robot1.id][1], self.coord_dict[self.object1][1])
+        dist_22 = self.euc_dist(self.coord_dict[self.robot2.id][1], self.coord_dict[self.object2][1])
+        dist_12 = self.euc_dist(self.coord_dict[self.robot1.id][1], self.coord_dict[self.object2][1])
+        dist_21 = self.euc_dist(self.coord_dict[self.robot2.id][1], self.coord_dict[self.object1][1])
 
         # Calculate the total distance for each combination of robot-object assignments
         dist_11_22 = dist_11 + dist_22
@@ -183,25 +175,23 @@ class ARTags:
         if dist_11_22 < dist_12_21:
             dist_1 = dist_11
             dist_2 = dist_22
-            return {self.robot1: self.object1, self.robot2: self.object2}
+            self.robot1.target = self.object1
+            self.robot2.target = self.object2
         else:
             dist_1 = dist_12
             dist_2 = dist_21
-            return {self.robot1: self.object2, self.robot2: self.object1}
+            self.robot1.target = self.object2
+            self.robot2.target = self.object1
 
 
     # given a robot, returns the angle to it's target
     def find_angle(self, robot):
-        negative, inter_angle = self.angle_between_markers1(self.coordinate_dict[robot][1], self.coordinate_dict[robot.target][2], self.coordinate_dict[robot][2])
-        angle = self.angle_between_markers2(negative, inter_angle, self.euclidean_dist(self.coordinate_dict[robot][2], self.coordinate_dict[robot.target][2]))
+        negative, inter_angle = self.angle_between_markers1(self.coord_dict[robot.id][1], self.coord_dict[robot.target][2], self.coord_dict[robot.id][2])
+        angle = self.angle_between_markers2(negative, inter_angle, self.euc_dist(self.coord_dict[robot.id][2], self.coord_dict[robot.target][2]))
         return angle
-        # except KeyError:
-        #   print("Key not found")
 
-# def find_quadrant(robot, object):
 
-# def check_obstacle(frame, robot, object):
-#   global obstacleAhead
+
 
 def setup(cam_src):
     '''
@@ -216,74 +206,91 @@ def setup(cam_src):
     start_time = time.time()
     return vs, sender, cam_id
 
-async def update_frame(cam_src, vs, sender, cam_id, new_task, marker_dict, marker_params, robot):
+async def update_frame(cam_src, vs, sender, cam_id, task, marker_dict, marker_params):
     '''
     Updates the video frame based on the current position of the markers.
     '''
+    p = 0
     global iter_count
     global dist_1, dist_2
     while True:
 
+        ## CAMERA STUFF ##
         new_vs = vs.read()
-        if np.array_equal(new_vs, new_task.frame):
+        if np.array_equal(new_vs, task.frame):
             print("camera not updating")
-        new_task.frame = new_vs
+        task.frame = new_vs
 
         # If for some reason we cannot find the task frame, try again.
-        if new_task.frame is None:
+        if task.frame is None:
             print("reading video stream failed, trying again")
             vs.stop()
             vs, sender, cami_id = setup(cam_src)
-            new_task.frame = vs.read()
+            task.frame = vs.read()
 
-        new_task.frame = imutils.resize(new_task.frame, width=1000)
+        task.frame = imutils.resize(task.frame, width=1000)
+        task.update_corners(marker_dict, marker_params)
+        # a = ([((0,0) in i or (0,0) in i[0]) for i in task.coord_dict.values()])
+        # print(a)
 
-        new_task.update_corners(marker_dict, marker_params)
+        # while any([any((0,0) in i or (0,0) in i[0]) for i in task.coord_dict.values()]):
+            # print("had to rerun update corners")
+            # task.update_corners(marker_dict, marker_params)
 
+        ## CONTROL LOGIC ##
+
+        # start of run, need to get targets
         if iter_count == 0:
-            object_allocate = new_task.find_closest_object()
-            print(object_allocate)
-            print("robot 1 is closest to object", object_allocate[new_task.robot1])
-            print("robot 2 is closest to object", object_allocate[new_task.robot2])
-            robot.target = object_allocate[new_task.robot1]
-        else:
-            dist_1 = new_task.euclidean_dist(new_task.coordinate_dict[new_task.robot1][1], new_task.coordinate_dict[robot.target][1])
-            dist_2 = new_task.euclidean_dist(new_task.coordinate_dict[new_task.robot2][1], new_task.coordinate_dict[object_allocate[new_task.robot2]][1])
+            task.assign_targets()
+            print("robot 1's target is", task.robot1.target)
+            print("robot 2's target is", task.robot2.target)
+
+            angle = task.find_angle(task.robot1)
+            print("target angle is", angle)
+            # print("distance ratio is", task.distance_ratio)
 
             
+        if len(task.object_order) > 0: # still more objects to get
 
-        # if iter_count % 10 == 0:
-        if len(new_task.object_order) > 0:
+            # update robots
+            # for robot in [task.robot1, task.robot2]:
+            for robot in [task.robot1]:
 
-            # robot has picked up object and is waiting
-            if robot.pick and robot.wait:
-                robot.target = new_task.ref_ID
-                robot.wait = 0
+                # get new distance
+                robot.dist = task.euc_dist(task.coord_dict[robot.id][1], task.coord_dict[robot.target][1])
+                # print("distance is", robot.dist)
 
-            negative, robot1_angle = new_task.angle_between_markers1(new_task.coordinate_dict[new_task.robot1][1], new_task.coordinate_dict[object_allocate[new_task.robot1]][2], new_task.coordinate_dict[new_task.robot1][2])
-            robot1_angle = new_task.angle_between_markers2(negative, robot1_angle, new_task.euclidean_dist(new_task.coordinate_dict[new_task.robot1][2], new_task.coordinate_dict[object_allocate[new_task.robot1]][2]))
-            # print("Final angle is ",robot1_angle)
-            await robot.edit_angle(robot1_angle)
+                # if robot that has an object has signaled a drop off
+                if robot.depositing and not robot.pick:
+                    robot.depositing = 0
+                    if len(task.object_order) > 0:
+                        robot.target = object_order.pop(0)
+                    else:
+                        print("DONE ASSIGNING OBJECTS")
 
-            await robot.edit_ready()
+                # if the robot is holding an object, change target to 0
+                if robot.pick:
+                    print("Robot is currently holding object")
+                    robot.depositing = 1
+                    robot.target = task.ref_ID
+                    robot.ready = 1
 
-            # at object
-            if dist_1 < 50:
-                print("At object")
-                await robot.edit_arrived()
+                # update robot angles
+                robot.angle = task.find_angle(robot)
+                # print("Dist is", robot.dist / task.distance_ratio)
 
-            # close enough to start driving cautiously
-            else if dist_1 < 200:
-                print("Close to the object")
-                await robot.edit_drive_cautious()
+                # at object
+                if (robot.dist / task.distance_ratio) < 5:
+                    print(robot.id, "is at object")
+                    robot.drive_cautious = 0
+                    robot.arrived = 1
 
-
-
-
-            if len(new_task.object_order) > 1:
-                robot2_angle = new_task.angle_between_markers1(new_task.coordinate_dict[new_task.robot2][1], new_task.coordinate_dict[object_allocate[new_task.robot2]][2], new_task.coordinate_dict[new_task.robot2][2])
-
-
+                # close enough to start driving cautiously
+                elif (robot.dist / task.distance_ratio) < 15:
+                    if p == 0:
+                        print(robot.id, "is close to the object")
+                        p += 1
+                    robot.drive_cautious = 1
 
         iter_count+=1
         sender.send_image(cam_id, new_vs)
@@ -294,18 +301,31 @@ async def main(cam_src, order=[3, 4, 5, 6]):
     marker_params = cv2.aruco.DetectorParameters_create()
     vs, sender, cam_id = setup(cam_src)
     
-    robot = display_writer.RobotController()
-    # await robot.disconnect()
-    await robot.client.connect()
+    address2 = "C0:98:E5:49:30:01"
+    address1 = "C0:98:E5:49:30:02"
 
-    new_task = ARTags(order)
-    task_1 = asyncio.create_task(update_frame(cam_src, vs, sender, cam_id, new_task, marker_dict, marker_params, robot))
-    task_2 = asyncio.create_task(robot.send())
+    robot1 = display_writer.RobotController(address1)
+    robot1.id = 1
+    robot2 = display_writer.RobotController(address2)
+    robot2.id = 2
+
+    await robot1.client.connect()
+    # await robot2.client.connect()
+
+    task = ARTags(order)
+
+    task.robot1 = robot1
+    task.robot2 = robot2
+
+    task_1 = asyncio.create_task(update_frame(cam_src, vs, sender, cam_id, task, marker_dict, marker_params))
+    task_2 = asyncio.create_task(robot1.send())
+    # task_3 = asyncio.create_task(robot2.send())
     print("Starting awaits")
 
     while True:
         await task_1
         await task_2
+        # await task_3
 
     print("exited loop for some reason")
 
