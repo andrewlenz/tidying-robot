@@ -44,6 +44,11 @@ class RobotController():
         self.arrived = 0 # at target
         self.drive_cautious = 0 # should drive cautiously
         self.depositing = 0 # on route to drop off
+        self.id = -1
+        self.target = -1
+        self.dist = -1
+        self.orient = True
+        self.counter = 0
 
     async def disconnect(self):
         if self.client.is_connected:
@@ -57,26 +62,49 @@ class RobotController():
 
     async def send(self):
         while True:
-            if not self.client.is_connected:
-                await self.setup()
-                print("BLE setup done before angle")
-            try:
-                await self.client.write_gatt_char(ANGLE_CHAR_UUID, bytes(str(self.angle)[:6], "utf-8"))
-            except Exception as e:
-                print(f"SEND ANGLE ERROR with" + str(self.id) + " :\t{e}")     
-            try:
-                await self.client.write_gatt_char(ARRIVED_CHAR_UUID, bin(self.arrived))
-            except Exception as e:
-                print(f"SEND ARRIVED ERROR with" + str(self.id) + " :\t{e}")     
-            try:
-                await self.client.write_gatt_char(READY_CHAR_UUID, bin(self.ready))
-            except Exception as e:
-                print(f"SEND READY ERROR with" + str(self.id) + " :\t{e}")     
-            try:
-                await self.client.write_gatt_char(DRIVE_CAUTIOUS_CHAR_UUID, bin(self.drive_cautious))
-            except Exception as e:
-                print(f"SEND DRIVE CAUTIOUS ERROR with" + str(self.id) + " :\t{e}")     
-            self.pick = await self.client.read_gatt_char(PICKED_CHAR_UUID)
+            if self.counter == 3:
+                print("send")
+                if not self.client.is_connected:
+                    await self.setup()
+                    print("BLE setup done before angle")
+                try:
+                    print("ble angle", str(self.angle)[:6])
+                    await asyncio.wait_for(self.client.write_gatt_char(ANGLE_CHAR_UUID, bytes(str(self.angle)[:6], "utf-8")), timeout = 3)
+                    await asyncio.wait_for(self.client.write_gatt_char(ARRIVED_CHAR_UUID, bytes(str(self.arrived), 'utf-8')), timeout = 3)
+                    await asyncio.wait_for(self.client.write_gatt_char(DRIVE_CAUTIOUS_CHAR_UUID, bytes(str(self.drive_cautious), 'utf-8')), timeout = 3)
+                    await asyncio.wait_for(self.client.write_gatt_char(READY_CHAR_UUID, bytes(str(self.ready), 'utf-8')), timeout = 3)
+                    temp_pick = await self.client.read_gatt_char(PICKED_CHAR_UUID)
+                    # print(temp_pick)
+                    # p = 
+                    # print("Temp pick is ", p);
+                    self.pick = 0 if temp_pick.decode('utf-8')[0] == "0" else 1 #int(temp_pick.decode('utf-8'))
+                    print(f"angle: {self.angle}, arrived: {self.arrived}, ready: {self.ready}, cautious: {self.drive_cautious}, depositing: {self.depositing}, pick: {self.pick}")
+                    self.counter = 0
+
+                    # print("pick is ", self.pick)
+                    # print("pick")
+                except asyncio.TimeoutError:
+                    print("Had a time out error")
+                    await self.client.disconnect()
+                    continue
+                except Exception as e:
+                    print(f"SEND ERROR with" + str(self.id) + e)  
+            else:
+                self.counter +=1   
+            # try:
+            #     await self.client.write_gatt_char(ARRIVED_CHAR_UUID, bin(self.arrived))
+            # except Exception as e:
+            #     print(f"SEND ARRIVED ERROR with " + str(self.id) + e) #RIDDHI chnaged the format    
+            # try:
+            #     await self.client.write_gatt_char(READY_CHAR_UUID, bin(self.ready))
+            # except Exception as e:
+            #     print(f"SEND READY ERROR with" + str(self.id) + " :\t{e}")     
+            # try:
+            #     await self.client.write_gatt_char(DRIVE_CAUTIOUS_CHAR_UUID, bin(self.drive_cautious))
+            # except Exception as e:
+            #     print(f"SEND DRIVE CAUTIOUS ERROR with" + str(self.id) + " :\t{e}")     
+
+            # print("end of send")
             await asyncio.sleep(0)
 
     async def setup(self):
@@ -89,7 +117,7 @@ class RobotController():
                 sys.exit(0)
             except BleakError as e:
                 print(f"not found:\t{e}")
-                self.setup()
+                await self.setup()
         else:
             return     
         return
