@@ -11,7 +11,6 @@ import imagezmq
 from math import acos, pi, cos, asin, sin, sqrt
 
 from threading import Thread
-# import display_writer
 import robot_controller
 import asyncio
 import numpy as np
@@ -24,7 +23,6 @@ class ARTags:
 
     global robot1_angle
     global robot2_angle
-    # global iter_count
 
     def __init__(self, object_order):
         self.ref_ID = 0
@@ -122,7 +120,6 @@ class ARTags:
 
     def angle_between_markers2(self, negative, intermediate_angle, from_to_distance, robot):
         if intermediate_angle == 0:
-            # print("angle is 0, skipping")
             return 4
         if intermediate_angle == robot.angle:
             if robot.orient:
@@ -132,7 +129,6 @@ class ARTags:
 
         c = sqrt(from_to_distance**2 + (14*self.distance_ratio)**2 - 2*from_to_distance*(14*self.distance_ratio)*cos(intermediate_angle*pi/180))
         sanity = (from_to_distance * sin(intermediate_angle*pi/180))/c
-        # print(sanity)
         if abs(sanity) > 1:
             print("error in angle calculation w arcsin, using last")
             if robot.orient:
@@ -255,12 +251,6 @@ async def update_frame(cam_src, vs, sender, cam_id, task, marker_dict, marker_pa
 
         task.frame = imutils.resize(task.frame, width=1000)
         task.update_corners(marker_dict, marker_params)
-        # a = ([((0,0) in i or (0,0) in i[0]) for i in task.coord_dict.values()])
-        # print(a)
-
-        # while any([any((0,0) in i or (0,0) in i[0]) for i in task.coord_dict.values()]):
-            # print("had to rerun update corners")
-            # task.update_corners(marker_dict, marker_params)
 
         ## CONTROL LOGIC ##
 
@@ -272,20 +262,23 @@ async def update_frame(cam_src, vs, sender, cam_id, task, marker_dict, marker_pa
 
         # update robots
         for robot in [task.robot1, task.robot2]:
-        # for robot in [task.robot2]:
             if not robot.finished:
-
-                # await robot.setup()
 
             # get new distance
                 robot.dist = task.euc_dist(task.coord_dict[robot.id][1], task.coord_dict[robot.target][1])
 
                 if robot.pick and not robot.depositing: # robot is holding object and waiting for drop off angle
                     robot.arrived = 0
+                    robot.prev_target = robot.target
                     robot.target = task.ref_ID
                     robot.drive_cautious = 0
                     robot.dist = task.euc_dist(task.coord_dict[robot.id][1], task.coord_dict[robot.target][1])
                     print(robot.id, "is is heading to drop off")
+
+                # if robot that has an object has signaled a drop off
+                if robot.depositing and not robot.pick and not robot.arrived:
+                    robot.target = robot.prev_target
+                    robot.depositing = 0
 
                 # if robot that has an object has signaled a drop off
                 if robot.depositing and not robot.pick and robot.arrived:
@@ -305,8 +298,6 @@ async def update_frame(cam_src, vs, sender, cam_id, task, marker_dict, marker_pa
 
                 # update robot angles
                 angle = task.find_angle(robot)
-                # if robot.target == 5 or robot.target == 6:
-                #     angle -= 2
                 robot.angle = angle
 
                 if robot.depositing == 0: # robot is always ready when not holding something

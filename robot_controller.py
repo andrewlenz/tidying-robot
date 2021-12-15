@@ -32,13 +32,12 @@ class RobotController():
         self.arrived = 0 # at target
         self.drive_cautious = 0 # should drive cautiously
         self.depositing = 0 # on route to drop off
-        self.id = -1
-        self.target = -1
-        self.dist = -1
-        self.orient = True
-        self.counter = 0
-        self.finished = 0
-        # self.wait = 0 # robot is waiting UPDATED BY ROBOT ONLY
+        self.id = -1 # the robot's id
+        self.target = -1 # current target
+        self.dist = -1 # distance to current target
+        self.orient = True # if current angle is positive
+        self.finished = 0 # robot is done
+        self.prev_target = 0 # used only if robot has a reset while it was holding an object
 
     async def disconnect(self):
         if self.client.is_connected:
@@ -50,7 +49,6 @@ class RobotController():
         return True
 
     async def send(self):
-        # print("finished")
         while True and not self.finished:
             if not self.client.is_connected:
                 print("Client not connected, attempting connect")
@@ -75,6 +73,11 @@ class RobotController():
                 if self.client.is_connected:
                     await self.client.disconnect()
                 continue
+            except IndexError as e:
+                print("index error")
+                if self.client.is_connected:
+                    await self.client.disconnect()
+                continue                
             except Exception as e:
                 print(f"SEND ERROR with" + str(self.id) + e)  
             await asyncio.sleep(0.05)
