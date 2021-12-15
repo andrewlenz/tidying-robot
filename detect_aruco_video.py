@@ -275,6 +275,8 @@ async def update_frame(cam_src, vs, sender, cam_id, task, marker_dict, marker_pa
         # for robot in [task.robot2]:
             if not robot.finished:
 
+                # await robot.setup()
+
             # get new distance
                 robot.dist = task.euc_dist(task.coord_dict[robot.id][1], task.coord_dict[robot.target][1])
 
@@ -303,8 +305,8 @@ async def update_frame(cam_src, vs, sender, cam_id, task, marker_dict, marker_pa
 
                 # update robot angles
                 angle = task.find_angle(robot)
-                # if robot.id == 2 and angle > 0:
-                #     angle += 2
+                # if robot.target == 5 or robot.target == 6:
+                #     angle -= 2
                 robot.angle = angle
 
                 if robot.depositing == 0: # robot is always ready when not holding something
@@ -416,7 +418,7 @@ async def main(cam_src, order=[3, 4, 5, 6]):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
 
-    ap.add_argument("-s", "--cam_src", type=int, required=True, help="Source camera ID")
     ap.add_argument("-o", "--order", nargs='+', type=int, required=False, help="Desired order of the objects. This should be a subset of the numbers 3, 4, 5, and 6. For instance, '-o 3 5 4 6'.")
+    ap.add_argument("-s", "--cam_src", type=int, required=True, help="Source camera ID")
     args = vars(ap.parse_args())
     asyncio.run(main(args["cam_src"], [int(_) for _ in args["order"]]))

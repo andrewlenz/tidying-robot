@@ -79,7 +79,7 @@ class RobotController():
                 print(f"SEND ERROR with" + str(self.id) + e)  
             await asyncio.sleep(0.05)
         if self.finished:
-            self.disconnect()
+            await self.disconnect()
 
     async def setup(self):
         if not self.client.is_connected:
