@@ -16,6 +16,7 @@ ARRIVED_CHAR_UUID = "32e65999-2b22-4db5-a914-43ce41986c65"
 # true if robot should start driving cautiously
 DRIVE_CAUTIOUS_CHAR_UUID = "32e66999-2b22-4db5-a914-43ce41986c65"
 
+
 address2 = "C0:98:E5:49:30:01"
 address1 = "C0:98:E5:49:30:02"
 
@@ -37,14 +38,10 @@ class RobotController():
         self.orient = True
         self.counter = 0
         self.finished = 0
-        self.new_dc = 0
-        self.new_a = 0
-        self.new_r = 0
         # self.wait = 0 # robot is waiting UPDATED BY ROBOT ONLY
 
     async def disconnect(self):
         if self.client.is_connected:
-            print("disconnecting at start")
             await self.client.disconnect()
 
     async def check_angle(self):
@@ -53,62 +50,50 @@ class RobotController():
         return True
 
     async def send(self):
-        while True:
-            # print("heartbeat in", self.id)
-            # if self.counter == 2:
-            # print("send")
+        # print("finished")
+        while True and not self.finished:
             if not self.client.is_connected:
                 print("Client not connected, attempting connect")
                 await self.setup()
                 print("BLE setup done before angle")
             try:
-                # print("last angle", str(self.angle)[:6])
                 await asyncio.wait_for(self.client.write_gatt_char(ANGLE_CHAR_UUID, bytes(str(self.angle)[:6], "utf-8")), timeout = 5)
-                # if self.new_a:
                 await asyncio.wait_for(self.client.write_gatt_char(ARRIVED_CHAR_UUID, bytes(str(self.arrived), 'utf-8')), timeout = 5)
-                    # self.new_a = 0
-                # if self.new_dc:
                 await asyncio.wait_for(self.client.write_gatt_char(DRIVE_CAUTIOUS_CHAR_UUID, bytes(str(self.drive_cautious), 'utf-8')), timeout = 5)
-                    # self.new_dc = 0
-                # if self.new_r:
                 await asyncio.wait_for(self.client.write_gatt_char(READY_CHAR_UUID, bytes(str(self.ready), 'utf-8')), timeout = 5)
-                    # self.new_r = 0
                 temp_pick = await asyncio.wait_for(self.client.read_gatt_char(PICKED_CHAR_UUID), timeout = 5)
-                # print(temp_pick)
                 self.pick = 0 if temp_pick.decode('utf-8')[0] == "0" else 1 #int(temp_pick.decode('utf-8'))
                 formatted_angle = "{:.2f}".format(self.angle)
                 print(f"ROBOT {self.id}, angle: {formatted_angle}, arrived: {self.arrived}, ready: {self.ready}, cautious: {self.drive_cautious}, depositing: {self.depositing}, pick: {self.pick}")
                 self.counter = 0
-                # print("pick is ", self.pick)
-                # print("pick")
             except asyncio.TimeoutError:
                 print("Had a time out error")
                 await self.client.disconnect()
                 continue
             except BleakError as e:
-                print("Bleak error")
+                print(f"BLEAK ERROR:\t{e}")
                 if self.client.is_connected:
                     await self.client.disconnect()
                 continue
             except Exception as e:
                 print(f"SEND ERROR with" + str(self.id) + e)  
-            # else:
-            #     self.counter +=1   
-            # print("end of send")
             await asyncio.sleep(0.05)
+        if self.finished:
+            self.disconnect()
 
     async def setup(self):
         if not self.client.is_connected:
             print("doing ble setup")
-            try:
-                print(f"Trying to connect to {self.address}")
-                await self.client.connect()
-                print("Connected to device")
-            except KeyboardInterrupt as e:
-                sys.exit(0)
-            except BleakError as e:
-                print(f"not found:\t{e}")
-                await self.setup()
+            while not self.client.is_connected:
+                try:
+                    print(f"Trying to connect to {self.address}")
+                    await self.client.connect()
+                    print("Connected to device")
+                except KeyboardInterrupt as e:
+                    sys.exit(0)
+                except BleakError as e:
+                    print(f"not found:\t{e}")
+                    await self.setup()
         else:
             return     
         return

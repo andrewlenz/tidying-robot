@@ -82,7 +82,7 @@ class ARTags:
         bottom_left_point = (int(bottom_left[0]), int(bottom_left[1]))
         bottom_right_point = (int(bottom_right[0]), int(bottom_right[1]))
 
-        # Draw ounding box around each AR Tag for visual purposes
+        # Draw bounding box around each AR Tag for visual purposes
         self.frame = cv2.line(self.frame, top_left_point, top_right_point, color, 2)
         self.frame = cv2.line(self.frame, top_right_point, bottom_right_point, color, 2)
         self.frame = cv2.line(self.frame, bottom_right_point, bottom_left_point, color, 2)
@@ -104,20 +104,15 @@ class ARTags:
         Finds the ANGLE that the robot needs to turn to face in the direction of the object,
         using coorindate tuples FROM_CENTER, FROM_FRONT and TO_CENTER and the cosine rule
         '''
-        # print(from_front)
-        # print(from_center)
         a = self.euc_dist(from_front, from_center)
         b = self.euc_dist(from_front, to_center)
         c = self.euc_dist(from_center, to_center)
-        sanity = (a**2 + b**2 - c**2) / (2*a*b)
-        # print(sanity)
-        if abs(sanity) > 1:
-            print("error in angle calculation w arccos, using last")
+
+        if a == 0 or b == 0 or c == 0 or (abs((a**2 + b**2 - c**2) / (2*a*b)) > 1):
+            # print("error in angle calculation w arccos, using last")
             return robot.orient, robot.angle
 
-        # print(a, b, c)
-        angle = (acos(sanity) * 180 / pi)
-        # angle = 180 - (acos((a**2 + b**2 - c**2) / (2*a*b)) * 180 / pi)
+        angle = (acos((a**2 + b**2 - c**2) / (2*a*b)) * 180 / pi)
         if ((from_front[0] - from_center[0]) * (to_center[1] - from_center[1])) - ((from_front[1] - from_center[1]) * (to_center[0] - from_center[0])) >= 0:
             robot.orient = False
             return False, angle
@@ -127,7 +122,7 @@ class ARTags:
 
     def angle_between_markers2(self, negative, intermediate_angle, from_to_distance, robot):
         if intermediate_angle == 0:
-            print("angle is 0, skipping")
+            # print("angle is 0, skipping")
             return 4
         if intermediate_angle == robot.angle:
             if robot.orient:
@@ -135,7 +130,7 @@ class ARTags:
             else:
                 return robot.angle
 
-        c = sqrt(from_to_distance**2 + (11*self.distance_ratio)**2 - 2*from_to_distance*(12.5*self.distance_ratio)*cos(intermediate_angle*pi/180))
+        c = sqrt(from_to_distance**2 + (14*self.distance_ratio)**2 - 2*from_to_distance*(14*self.distance_ratio)*cos(intermediate_angle*pi/180))
         sanity = (from_to_distance * sin(intermediate_angle*pi/180))/c
         # print(sanity)
         if abs(sanity) > 1:
@@ -144,8 +139,6 @@ class ARTags:
                 return -robot.angle - 1
             else:
                 return robot.angle
-        # if abs(sanity) > 1:
-        #     sanity = 1
 
         else:
             desired_angle = (asin(sanity)*180/pi)
@@ -276,22 +269,12 @@ async def update_frame(cam_src, vs, sender, cam_id, task, marker_dict, marker_pa
             task.assign_targets()
             print("robot 1's target is", task.robot1.target)
             print("robot 2's target is", task.robot2.target)
-            # print("distance is", task.robot1.dist)
-            # print("distance is", task.robot2.dist)
 
-            # angle = task.find_angle(task.robot1)
-            # print(taskrobot.id, "'s target angle is", angle)
-            # print("distance ratio is", task.distance_ratio)
-
-            
-        # if len(task.object_order) > 0: # still more objects to get
-        if task.robot1.target == 100 and task.robot2.target == 100:
-            print("FINISHED")
-            robot.ready = 0
         # update robots
         for robot in [task.robot1, task.robot2]:
         # for robot in [task.robot2]:
             if not robot.finished:
+
             # get new distance
                 robot.dist = task.euc_dist(task.coord_dict[robot.id][1], task.coord_dict[robot.target][1])
 
@@ -299,89 +282,91 @@ async def update_frame(cam_src, vs, sender, cam_id, task, marker_dict, marker_pa
                     robot.arrived = 0
                     robot.target = task.ref_ID
                     robot.drive_cautious = 0
-                    robot.new_dc = 1
-                    robot.new_a = 1
                     robot.dist = task.euc_dist(task.coord_dict[robot.id][1], task.coord_dict[robot.target][1])
                     print(robot.id, "is is heading to drop off")
 
                 # if robot that has an object has signaled a drop off
-                if robot.depositing and not robot.pick:
+                if robot.depositing and not robot.pick and robot.arrived:
                     robot.depositing = 0
                     robot.arrived = 0
                     robot.drive_cautious = 0
-                    robot.new_dc = 1
-                    robot.new_a = 1
                     if len(task.object_order) > 0:
                         robot.target = task.object_order.pop(0)
                         robot.dist = task.euc_dist(task.coord_dict[robot.id][1], task.coord_dict[robot.target][1])
                         print(robot.id, "'s new target is ", robot.target)
                     else:
                         robot.finished = 1
+                        robot.ready = 0
+                        await robot.disconnect()
                         print(robot.id, " is FINISHED")
 
 
                 # update robot angles
                 angle = task.find_angle(robot)
+                # if robot.id == 2 and angle > 0:
+                #     angle += 2
                 robot.angle = angle
 
                 if robot.depositing == 0: # robot is always ready when not holding something
                     if robot.finished:
                         robot.ready = 0
-                        robot.new_r = 1
                     else:
                         robot.ready = 1
-                        robot.new_r = 1
 
-                if robot.pick and not robot.depositing: # update ready and depositing state to start drop off
+                if robot.pick and not robot.depositing and not robot.finished: # update ready and depositing state to start drop off
                     robot.ready = 1
-                    robot.new_r = 1
                     robot.depositing = 1
 
-                # elif robot.pick and robot.depositing:
-                #     robot.ready = 0
-
-                # print(robot.angle)
-                # if iter_count % 100 == 0:
-                    # print(robot.id, "dist is", robot.dist / task.distance_ratio)
-
                 # at object
-
-                if (robot.dist / task.distance_ratio) < 25 and robot.depositing: # signal arrive for drop off
+                if (robot.dist / task.distance_ratio) < 20 and robot.depositing and robot.id == 1: # signal arrive for drop off
                     if p == 0:
                         print(robot.id, "is at drop off point")
                         p += 1
                     robot.arrived = 1
-                    robot.new_a = 1
 
-                if (robot.dist / task.distance_ratio) < 10.5 and not robot.depositing: # signal arrive for pick up
+                # at object
+                if (robot.dist / task.distance_ratio) < 20 and robot.depositing and robot.id == 2: # signal arrive for drop off
+                    if p == 0:
+                        print(robot.id, "is at drop off point")
+                        p += 1
+                    robot.arrived = 1
+
+                if (robot.dist / task.distance_ratio) < 9.5 and not robot.depositing and robot.id == 1: # signal arrive for pick up
                     if p == 0:
                         print(robot.id, "is at object")
                         p += 1
                     robot.arrived = 1
-                    robot.new_a = 1
+
+                if (robot.dist / task.distance_ratio) < 9.5 and not robot.depositing and robot.id == 2: # signal arrive for pick up
+                    if p == 0:
+                        print(robot.id, "is at object")
+                        p += 1
+                    robot.arrived = 1
 
 
                 elif (robot.dist / task.distance_ratio) >= 14 and not robot.depositing: # need to set arrive correctly again in back up
-                    robot.new_a = 1
                     robot.arrived = 0
                     robot.drive_cautious = 0
-                    robot.new_d = 1
 
                 # close enough to start driving cautiously
-                if (robot.dist / task.distance_ratio) < 30:
+                if (robot.dist / task.distance_ratio) < 30 and robot.id == 2:
                     if p == 1:
                         print(robot.id, "is close to the object")
                         p += 1
                     robot.drive_cautious = 1
-                    robot.new_dc = 1
+
+                if (robot.dist / task.distance_ratio) < 30 and robot.id == 1:
+                    if p == 1:
+                        print(robot.id, "is close to the object")
+                        p += 1
+                    robot.drive_cautious = 1
 
                 if robot.target == 100:
                     robot.ready = 0
-                    robot.new_r = 1
 
         iter_count+=1
         sender.send_image(cam_id, new_vs)
-        await asyncio.sleep(0)
+        await asyncio.sleep(0.05)
     
 async def main(cam_src, order=[3, 4, 5, 6]):
     marker_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_50)
