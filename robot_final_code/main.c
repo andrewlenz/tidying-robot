@@ -261,7 +261,7 @@ void print_state(states current_state){
 // true if robot has near an obstacle or triggered an obstacle
 static bool obstacle(KobukiSensors_t sensors) {
 
-  if (sensors.bumps_wheelDrops.bumpLeft) {
+if (sensors.bumps_wheelDrops.bumpLeft) {
     left = true;
   }
   if (sensors.bumps_wheelDrops.bumpRight) {
@@ -279,123 +279,123 @@ static bool obstacle(KobukiSensors_t sensors) {
 
 int main(void) {
 
-  // initialize display
-  nrf_drv_spi_t spi_instance = NRF_DRV_SPI_INSTANCE(1);
-  nrf_drv_spi_config_t spi_config = {
-    .sck_pin = BUCKLER_LCD_SCLK,
-    .mosi_pin = BUCKLER_LCD_MOSI,
-    .miso_pin = BUCKLER_LCD_MISO,
-    .ss_pin = BUCKLER_LCD_CS,
-    .irq_priority = NRFX_SPI_DEFAULT_CONFIG_IRQ_PRIORITY,
-    .orc = 0,
-    .frequency = NRF_DRV_SPI_FREQ_4M,
-    .mode = NRF_DRV_SPI_MODE_2,
-    .bit_order = NRF_DRV_SPI_BIT_ORDER_MSB_FIRST
-  };
-  
+	// initialize display
+	nrf_drv_spi_t spi_instance = NRF_DRV_SPI_INSTANCE(1);
+	nrf_drv_spi_config_t spi_config = {
+		.sck_pin = BUCKLER_LCD_SCLK,
+		.mosi_pin = BUCKLER_LCD_MOSI,
+		.miso_pin = BUCKLER_LCD_MISO,
+		.ss_pin = BUCKLER_LCD_CS,
+		.irq_priority = NRFX_SPI_DEFAULT_CONFIG_IRQ_PRIORITY,
+		.orc = 0,
+		.frequency = NRF_DRV_SPI_FREQ_4M,
+		.mode = NRF_DRV_SPI_MODE_2,
+		.bit_order = NRF_DRV_SPI_BIT_ORDER_MSB_FIRST
+	};
 
-  ret_code_t error_code = nrf_drv_spi_init(&spi_instance, &spi_config, NULL, NULL);
-  APP_ERROR_CHECK(error_code);
-  display_init(&spi_instance);
-  display_write("Hello, Human!", DISPLAY_LINE_0);
+	ret_code_t error_code = nrf_drv_spi_init(&spi_instance, &spi_config, NULL, NULL);
+	APP_ERROR_CHECK(error_code);
+	display_init(&spi_instance);
+	display_write("Hello, Human!", DISPLAY_LINE_0);
 
 	// initialize i2c master (two wire interface)
-  nrf_drv_twi_config_t i2c_config = NRF_DRV_TWI_DEFAULT_CONFIG;
-  i2c_config.scl = BUCKLER_SENSORS_SCL;
-  i2c_config.sda = BUCKLER_SENSORS_SDA;
-  i2c_config.frequency = NRF_TWIM_FREQ_100K;
-  error_code = nrf_twi_mngr_init(&twi_mngr_instance, &i2c_config);
-  APP_ERROR_CHECK(error_code);
-  lsm9ds1_init(&twi_mngr_instance);
-  nrf_delay_ms(100);
+	nrf_drv_twi_config_t i2c_config = NRF_DRV_TWI_DEFAULT_CONFIG;
+	i2c_config.scl = BUCKLER_SENSORS_SCL;
+	i2c_config.sda = BUCKLER_SENSORS_SDA;
+	i2c_config.frequency = NRF_TWIM_FREQ_100K;
+	error_code = nrf_twi_mngr_init(&twi_mngr_instance, &i2c_config);
+	APP_ERROR_CHECK(error_code);
+	lsm9ds1_init(&twi_mngr_instance);
+	nrf_delay_ms(100);
 
-  // Setup BLE
-  display_write("BLE Setup", DISPLAY_LINE_0);
-  simple_ble_app = simple_ble_init(&ble_config);
+	// Setup BLE
+	display_write("BLE Setup", DISPLAY_LINE_0);
+	simple_ble_app = simple_ble_init(&ble_config);
 
-  simple_ble_add_service(&angle_service);
+	simple_ble_add_service(&angle_service);
 
-  simple_ble_add_characteristic(1, 1, 0, 0,
-      sizeof(char) * 12, (char*)&angle,
-      &angle_service, &angle_char);
+	simple_ble_add_characteristic(1, 1, 0, 0,
+		sizeof(char) * 12, (char*)&angle,
+		&angle_service, &angle_char);
 
-  simple_ble_add_characteristic(1, 1, 0, 0,
-    sizeof(char) * 12, (char*)&ready_array,
-    &angle_service, &ready_char);
+	simple_ble_add_characteristic(1, 1, 0, 0,
+		sizeof(char) * 12, (char*)&ready_array,
+		&angle_service, &ready_char);
 
-  simple_ble_add_characteristic(1, 1, 0, 0,
-    sizeof(char) * 12, (char*)&picked_array,
-    &angle_service, &picked_char);
+	simple_ble_add_characteristic(1, 1, 0, 0,
+		sizeof(char) * 12, (char*)&picked_array,
+		&angle_service, &picked_char);
 
-  update_picked();
+	update_picked();
 
-  simple_ble_add_characteristic(1, 1, 0, 0,
-    sizeof(char) * 12, (char*)&arrived_array,
-    &angle_service, &arrived_char);
+	simple_ble_add_characteristic(1, 1, 0, 0,
+		sizeof(char) * 12, (char*)&arrived_array,
+		&angle_service, &arrived_char);
 
-  simple_ble_add_characteristic(1, 1, 0, 0,
-    sizeof(char) * 12, (char*)&drive_cautious_array,
-    &angle_service, &drive_cautious_char);
+	simple_ble_add_characteristic(1, 1, 0, 0,
+		sizeof(char) * 12, (char*)&drive_cautious_array,
+		&angle_service, &drive_cautious_char);
 
-  // Start Advertising
-  simple_ble_adv_only_name();
-  display_write("BLE Setup done", DISPLAY_LINE_0);
+	// Start Advertising
+	simple_ble_adv_only_name();
+	display_write("BLE Setup done", DISPLAY_LINE_0);
 
-  // initialize Kobuki
-  kobukiInit();
+	// initialize Kobuki
+	kobukiInit();
 
-  // Set up ultrasonic sensor timer
-  ultras_virtual_timer_init();
+	// Set up ultrasonic sensor timer
+	ultras_virtual_timer_init();
 
-  // Set up servo and pressure code
-  pwm_init();
-  nrf_gpio_pin_dir_set(pinIn, NRF_GPIO_PIN_DIR_INPUT);
+	// Set up servo and pressure code
+	pwm_init();
+	nrf_gpio_pin_dir_set(pinIn, NRF_GPIO_PIN_DIR_INPUT);
 
-  //GRIPPER SETUP
-  // Fully raised
-  while(app_pwm_channel_duty_set(&PWM1, 1, 5) == NRF_ERROR_BUSY);
-  lowered = false;
-  // Fully open
-  while(app_pwm_channel_duty_set(&PWM1, 0, 3) == NRF_ERROR_BUSY);
+	//GRIPPER SETUP
+	// Fully raised
+	while(app_pwm_channel_duty_set(&PWM1, 1, 5) == NRF_ERROR_BUSY);
+	lowered = false;
+	// Fully open
+	while(app_pwm_channel_duty_set(&PWM1, 0, 3) == NRF_ERROR_BUSY);
 
-  uint32_t counter = 0;
+	uint32_t counter = 0;
   // loop forever, running state machine
-  while (1) {
-    counter++;
-    // read sensors from robot
-    int status = kobukiSensorPoll(&sensors);
-    print_state(state);
+	while (1) {
+		counter++;
+		// read sensors from robot
+		int status = kobukiSensorPoll(&sensors);
+		print_state(state);
 
-    switch(state) {
+		switch(state) {
 
-    	case OFF: {
+			case OFF: {
 
-        // received angle over BLE connection
-        if (fabs(turn_angle) > 0) {
-        	state = TURNING;
-        	lsm9ds1_start_gyro_integration();
-        	saved_angle = turn_angle;
-        }
-        else {
-          state = OFF;
-          kobukiDriveDirect(0,0); 
-        }
-        break;
-      }
+				// received angle over BLE connection
+				if (fabs(turn_angle) > 0) {
+					state = TURNING;
+					lsm9ds1_start_gyro_integration();
+					saved_angle = turn_angle;
+				}
+				else {
+				  state = OFF;
+				  kobukiDriveDirect(0,0); 
+				}
+				break;
+			}
 
-     	case TURNING: {
-	      initial_gyro = lsm9ds1_read_gyro_integration();
-	      snprintf(buf, 16, "%0.4f %d", fabs(initial_gyro.z_axis), counter);
-	      display_write(buf, DISPLAY_LINE_1);
+			case TURNING: {
+				initial_gyro = lsm9ds1_read_gyro_integration();
+				snprintf(buf, 16, "%0.4f %d", fabs(initial_gyro.z_axis), counter);
+				display_write(buf, DISPLAY_LINE_1);
 
-        if (is_button_pressed(&sensors)) { // turn off
-        	kobukiDriveDirect(0,0); 
+				// turn off
+				if (is_button_pressed(&sensors)) { 
+					kobukiDriveDirect(0,0); 
 					nrf_delay_ms(50);
 					kobukiSensorPoll(&sensors);
 					state = OFF;
 
 				// reached angle
-	      } else if (fabs(initial_gyro.z_axis) >= fabs(saved_angle)) { 
+				} else if (fabs(initial_gyro.z_axis) >= fabs(saved_angle)) { 
 					lsm9ds1_stop_gyro_integration();
 					kobukiDriveDirect(0,0);
 					nrf_delay_ms(50);
@@ -404,32 +404,32 @@ int main(void) {
 					displacement = 0;
 					state = DRIVING; 
 
-					//keep turning right
-	      } else if (saved_angle >= 0) {
-          if (drive_cautious) {
-            kobukiDriveDirect(cautious_turn_speed, -cautious_turn_speed);
-            state = TURNING;
-          } else{
-            kobukiDriveDirect(turn_speed, -turn_speed);
-            state = TURNING;          
-          }
-					// keep turning left
-	      } else {
-          if (drive_cautious) {
-            kobukiDriveDirect(-cautious_turn_speed, cautious_turn_speed);
-            state = TURNING;
-          } else {
-            kobukiDriveDirect(-turn_speed, turn_speed);
-            state = TURNING;
-          }
-	      }
-	      break;
-    	}
+				//keep turning right
+				} else if (saved_angle >= 0) {
+					if (drive_cautious) {
+						kobukiDriveDirect(cautious_turn_speed, -cautious_turn_speed);
+						state = TURNING;
+					} else {
+						kobukiDriveDirect(turn_speed, -turn_speed);
+						state = TURNING;          
+					}
+				// keep turning left
+				} else {
+					if (drive_cautious) {
+						kobukiDriveDirect(-cautious_turn_speed, cautious_turn_speed);
+						state = TURNING;
+					} else {
+						kobukiDriveDirect(-turn_speed, turn_speed);
+						state = TURNING;
+					}
+				}
+				break;
+			}
 
-      case DRIVING: {
-	      displacement = measure_distance(sensors.rightWheelEncoder, starting_value);
+			case DRIVING: {
+				displacement = measure_distance(sensors.rightWheelEncoder, starting_value);
 
-        if (is_button_pressed(&sensors)) {
+				if (is_button_pressed(&sensors)) {
 					state = OFF;
 					kobukiDriveDirect(0,0);  
 					snprintf(buf, 16, "%f", displacement);
@@ -437,296 +437,296 @@ int main(void) {
 					nrf_delay_ms(50);
 					kobukiSensorPoll(&sensors);
 
-					// within 20 cm of the target, speed reduced and angle adjustments smaller
+				// within 20 cm of the target, speed reduced and angle adjustments smaller
 				} else if (drive_cautious) {
-            if (!lowered) {
-              while(app_pwm_channel_duty_set(&PWM1, 1, 7.6) == NRF_ERROR_BUSY);
-              nrf_delay_ms(30);
-              kobukiSensorPoll(&sensors);
-              lowered = true;
-            }
-            //lowered
+					if (!lowered) {
+						while(app_pwm_channel_duty_set(&PWM1, 1, 7.6) == NRF_ERROR_BUSY);
+						nrf_delay_ms(30);
+						kobukiSensorPoll(&sensors);
+						lowered = true;
+					}
+					//lowered
 
-              // arrived at destination
-             if (arrived) {
-              drive_cautious = false;
-              if (picked) { // holding an object currently
-                state = DROP;
-              } else {
-                duty_cycle = 4;
-                state = GRAB; // going to grab an object
-              }
-              kobukiDriveDirect(0, 0);
-              
-							//angle was updated, reaangling
-						}	else if (fabs(turn_angle) > 1) {
-							saved_angle = turn_angle;
-							turn_angle = 0;
-							kobukiDriveDirect(0, 0);
-							lsm9ds1_stop_gyro_integration();
-							state = TURNING;
-							nrf_delay_ms(50);
-							kobukiSensorPoll(&sensors);
-							lsm9ds1_start_gyro_integration();
-							snprintf(buf, 16, "%f", saved_angle);
-							display_write(buf, DISPLAY_LINE_0);
-
-							//continue driving slowly
+					// arrived at destination
+					if (arrived) {
+						drive_cautious = false;
+						if (picked) { // holding an object currently
+							state = DROP;
 						} else {
-							kobukiDriveDirect(cautious_drive_speed, cautious_drive_speed);
-              nrf_delay_ms(10);
-              state = DRIVING;
+							duty_cycle = 4;
+							state = GRAB; // going to grab an object
 						}
+						kobukiDriveDirect(0, 0);
 
-					//all below is for driving at normal speed
+					//angle was updated, reaangling
+					} else if (fabs(turn_angle) > 1) {
+						saved_angle = turn_angle;
+						turn_angle = 0;
+						kobukiDriveDirect(0, 0);
+						lsm9ds1_stop_gyro_integration();
+						state = TURNING;
+						nrf_delay_ms(50);
+						kobukiSensorPoll(&sensors);
+						lsm9ds1_start_gyro_integration();
+						snprintf(buf, 16, "%f", saved_angle);
+						display_write(buf, DISPLAY_LINE_0);
 
+					//continue driving slowly
+					} else {
+						kobukiDriveDirect(cautious_drive_speed, cautious_drive_speed);
+						nrf_delay_ms(10);
+						state = DRIVING;
+					}
+
+				//all below is for driving at normal speed
 				} else if (obstacle(sensors)) {
-          kobukiDriveDirect(0,0);
-          state = BACKUP;
-          starting_value2 = sensors.rightWheelEncoder;
+					kobukiDriveDirect(0,0);
+					state = BACKUP;
+					starting_value2 = sensors.rightWheelEncoder;
 
-        } else if (fabs(turn_angle) > 3) { //angle was updated
+				//angle was updated
+				} else if (fabs(turn_angle) > 3) { 
 					saved_angle = turn_angle;
 					turn_angle = 0;
-          kobukiDriveDirect(0,0);
+					kobukiDriveDirect(0,0);
 					lsm9ds1_stop_gyro_integration();
 					state = TURNING;
 					nrf_delay_ms(50);
 					kobukiSensorPoll(&sensors);
 					lsm9ds1_start_gyro_integration();
-          kobukiDriveDirect(50, -50);
+					kobukiDriveDirect(50, -50);
 
-        } else { // drive
-          // Fully raised
-          while(app_pwm_channel_duty_set(&PWM1, 1, 5) == NRF_ERROR_BUSY);
-          lowered = false;
+				// drive
+				} else { 
+					// Fully raised
+					while(app_pwm_channel_duty_set(&PWM1, 1, 5) == NRF_ERROR_BUSY);
+					lowered = false;
 					kobukiDriveDirect(drive_speed, drive_speed);
 					state = DRIVING;
+					}
+				break;
+			}
+
+			// back up 0.1 m from obstacle
+			case BACKUP: {
+				displacement = measure_distance(starting_value2, sensors.rightWheelEncoder);
+				if (is_button_pressed(&sensors)) {
+					state = OFF;
+					kobukiDriveDirect(0,0); 
+					nrf_delay_ms(50);
+					kobukiSensorPoll(&sensors);
+					// break;
+
+				//backed up enough
+				} else if (displacement >= 0.1) {
+					// cases where next move is to drive again
+					if (retry_grab || wait_case == READY) { 
+						kobukiDriveDirect(0,0);  
+						state = WAIT;
+						wait_case = DRIVE_WAIT;
+						drive_cautious = 1;
+
+						//Fully raised, going to backup and retry
+						while(app_pwm_channel_duty_set(&PWM1, 1, 5) == NRF_ERROR_BUSY);
+						nrf_delay_ms(30);
+						lowered = false;
+
+						// Fully open
+						while(app_pwm_channel_duty_set(&PWM1, 0, 3) == NRF_ERROR_BUSY);
+						nrf_delay_ms(30);
+						kobukiSensorPoll(&sensors);
+						duty_cycle = 4;
+
+					//purpose of backup was to avoid obstacle
+					} else {
+						state = OBS_TURN;
+						kobukiDriveDirect(0,0);  
+						ret_code_t result = lsm9ds1_start_gyro_integration();
+					}
+
+				//continue backup
+				} else {
+					kobukiDriveDirect(-65,-65);
+					snprintf(buf, 16, "%f", displacement);
+					display_write(buf, DISPLAY_LINE_1);
+					state = BACKUP;     
 				}
 				break;
-	    }
+			}
+				// turn 45 degrees away from obstacle
+			case OBS_TURN: {
+				initial_gyro = lsm9ds1_read_gyro_integration();
+				snprintf(buf, 16, "%f", fabs(initial_gyro.z_axis));
+				display_write(buf, DISPLAY_LINE_1);
 
-	    // back up 0.1 m from obstacle
-	    case BACKUP: {
-	    displacement = measure_distance(starting_value2, sensors.rightWheelEncoder);
-        if (is_button_pressed(&sensors)) {
-          state = OFF;
-          kobukiDriveDirect(0,0); 
-          nrf_delay_ms(50);
-          kobukiSensorPoll(&sensors);
-          // break;
-        }
+				if (is_button_pressed(&sensors)) {
+					state = OFF;
+					kobukiDriveDirect(0,0); 
+					nrf_delay_ms(50);
+					kobukiSensorPoll(&sensors);
 
-        //backed up enough
-        else if (displacement >= 0.1) {
-        	if (retry_grab || wait_case == READY) { // cases where next move is to drive again
-            kobukiDriveDirect(0,0);  
-        		state = WAIT;
-            wait_case = DRIVE_WAIT;
-            drive_cautious = 1;
+				//turned enough
+				} else if (fabs(initial_gyro.z_axis) >=  45) {
+					lsm9ds1_stop_gyro_integration();
+					kobukiDriveDirect(0,0);
+					nrf_delay_ms(100);
+					kobukiSensorPoll(&sensors);
+					state = OBS_DRIVE;
+					displacement = 0;
+					starting_value = sensors.rightWheelEncoder;
+					left = false;
+					right = false;
+					center = false;
 
-            //Fully raised, going to backup and retry
-            while(app_pwm_channel_duty_set(&PWM1, 1, 5) == NRF_ERROR_BUSY);
-            nrf_delay_ms(30);
-            lowered = false;
+				} else {
+					if (left || center) {
+						kobukiDriveDirect(40,-40);
+						snprintf(buf, 16, "%f", fabs(initial_gyro.z_axis));
+						display_write(buf, DISPLAY_LINE_1);
+						state = OBS_TURN;
+					} else {
+						kobukiDriveDirect(-40, 40);
+						snprintf(buf, 16, "%f", fabs(initial_gyro.z_axis));
+						display_write(buf, DISPLAY_LINE_1);
+						state = OBS_TURN;
+					}
+				break;
+				}
+			}
 
-            // Fully open
-            while(app_pwm_channel_duty_set(&PWM1, 0, 3) == NRF_ERROR_BUSY);
-            nrf_delay_ms(30);
-            kobukiSensorPoll(&sensors);
-            duty_cycle = 4;
-        	} else { //purpose of backup was to avoid obstacle
-          	state = OBS_TURN;
-          	kobukiDriveDirect(0,0);  
-	          ret_code_t result = lsm9ds1_start_gyro_integration();
-        	}
+			case OBS_DRIVE: {
+				displacement = measure_distance(starting_value, sensors.rightWheelEncoder);
+				if (is_button_pressed(&sensors)) {
+					state = OFF;
+					kobukiDriveDirect(0,0); 
+					nrf_delay_ms(50);
+					kobukiSensorPoll(&sensors);
+					break;
+				}
+				//go back to drive to get new angle
+				if (displacement >= 0.1) {
+					state = DRIVING;
+					kobukiDriveDirect(0,0);  
+					nrf_delay_ms(50);
+					kobukiSensorPoll(&sensors); 
+					starting_value = sensors.rightWheelEncoder;
 
-	        //continue backup
-        } else {
-          kobukiDriveDirect(-65,-65);
-          snprintf(buf, 16, "%f", displacement);
-          display_write(buf, DISPLAY_LINE_1);
-          state = BACKUP;     
-        }
-        break;
-      }
-      // turn 45 degrees away from obstacle
-      case OBS_TURN: {
-        initial_gyro = lsm9ds1_read_gyro_integration();
-        snprintf(buf, 16, "%f", fabs(initial_gyro.z_axis));
-        display_write(buf, DISPLAY_LINE_1);
+				//drive forward a bit more to avoid obstacle
+				} else {
+					kobukiDriveDirect(50, 50);
+					snprintf(buf, 16, "%f", displacement);
+					display_write(buf, DISPLAY_LINE_1);
+					state = OBS_DRIVE;     
+				}
+			break;
+			}
 
-        if (is_button_pressed(&sensors)) {
-          state = OFF;
-          kobukiDriveDirect(0,0); 
-          nrf_delay_ms(50);
-          kobukiSensorPoll(&sensors);
-
-          //turned enough
-        } else if (fabs(initial_gyro.z_axis) >=  45) {
-          lsm9ds1_stop_gyro_integration();
-          kobukiDriveDirect(0,0);
-          nrf_delay_ms(100);
-          kobukiSensorPoll(&sensors);
-          state = OBS_DRIVE;
-          displacement = 0;
-          starting_value = sensors.rightWheelEncoder;
-          left = false;
-          right = false;
-          center = false;
-
-	      } else {
-	        if (left || center) {
-	          kobukiDriveDirect(40,-40);
-	          snprintf(buf, 16, "%f", fabs(initial_gyro.z_axis));
-	          display_write(buf, DISPLAY_LINE_1);
-	          state = OBS_TURN;
-	        } else {
-	          kobukiDriveDirect(-40, 40);
-	          snprintf(buf, 16, "%f", fabs(initial_gyro.z_axis));
-	          display_write(buf, DISPLAY_LINE_1);
-	          state = OBS_TURN;
-	        }
-	        break;
-	      }
-	    }
-
-	    case OBS_DRIVE: {
-	    displacement = measure_distance(starting_value, sensors.rightWheelEncoder);
-        if (is_button_pressed(&sensors)) {
-          state = OFF;
-          kobukiDriveDirect(0,0); 
-          nrf_delay_ms(50);
-          kobukiSensorPoll(&sensors);
-          break;
-        }
-         //go back to drive to get new angle
-        if (displacement >= 0.1) {
-          state = DRIVING;
-          kobukiDriveDirect(0,0);  
-          nrf_delay_ms(50);
-          kobukiSensorPoll(&sensors); 
-          starting_value = sensors.rightWheelEncoder;
-        } else {
-          //drive forward a bit more to avoid obstacle
-          kobukiDriveDirect(50, 50);
-          snprintf(buf, 16, "%f", displacement);
-          display_write(buf, DISPLAY_LINE_1);
-          state = OBS_DRIVE;     
-        } 
-
-        break;
-      }
-
-      case GRAB: {
-      	// closing gripper and object not picked up
-        get_pressure(&pressure);
-        if ((pressure < 1) && (duty_cycle <= 11)) {
-
-          //closing
-          while(app_pwm_channel_duty_set(&PWM1, 0, duty_cycle) == NRF_ERROR_BUSY);
+			case GRAB: {
+			// closing gripper and object not picked up
+				get_pressure(&pressure);
+				if ((pressure < 1) && (duty_cycle <= 11)) {
+					//closing
+					while(app_pwm_channel_duty_set(&PWM1, 0, duty_cycle) == NRF_ERROR_BUSY);
 					duty_cycle += 0.5;
 					nrf_delay_ms(100);
 					kobukiSensorPoll(&sensors);
-          state = GRAB;
+					state = GRAB;
 
-        // fully closed but didn't pick up object
-        } else if (duty_cycle == 11 && (pressure < 1)) {
-        	state = BACKUP;
-        	retry_grab = true;
-          arrived = 0;
-          duty_cycle = 4;
+				// fully closed but didn't pick up object
+				} else if (duty_cycle == 11 && (pressure < 1)) {
+					state = BACKUP;
+					retry_grab = true;
+					arrived = 0;
+					duty_cycle = 4;
 
-        // successfully picked up object, will wait for next angle
-        } else {
-        	 //Fully raised
-          nrf_delay_ms(30);
-          while(app_pwm_channel_duty_set(&PWM1, 1, 5) == NRF_ERROR_BUSY);
-          nrf_delay_ms(30);
-          kobukiSensorPoll(&sensors);
-          lowered = false;
-          ready = 0;
-          drive_cautious = 0;
-          arrived = 0;
-        	retry_grab = false;
-        	picked = true; // SEND TO CAMERA
-          update_picked();
-        	wait_case = READY;
-        	state = WAIT;
-        }
-		  	break;
-		  }
-
-		  // case to drop an object
-		  case DROP: {
-       	//Fully open
-        while(app_pwm_channel_duty_set(&PWM1, 0, 3) == NRF_ERROR_BUSY);
-        nrf_delay_ms(30);
-        kobukiSensorPoll(&sensors);
-        picked = false;
-        update_picked();
-        ready = 0;
-        drive_cautious = 0;
-        arrived = 0;
-        wait_case = READY;
-        duty_cycle = 4;
-        state = WAIT;
-		    break;
-		  }
-
-		  // wait for a response from central
-		  case WAIT: {
-        switch (wait_case) {
-
-          case DRIVE_WAIT: {
-            if (wait_count > 40) {
-              wait_count = 0;
-              state = DRIVING;
-              starting_value = sensors.rightWheelEncoder;
-              displacement = 0;
-            } else {
-              wait_count++;
-              kobukiDriveDirect(0,0);
-              state = WAIT;
-            }
-            break;
-          }
-
-          case READY: {
-            get_pressure(&pressure);
-            if (picked && pressure < 1) {
-              picked = 0;
-              update_picked();
-              state = BACKUP;
-              retry_grab = true;
-              starting_value2 = sensors.rightWheelEncoder;
-            }
-            else if (ready && arrived == 0) { //new angle is ready
-              if (picked) {
-                state = TURNING;
-              } else {
-                starting_value2 = sensors.rightWheelEncoder;
-                state = BACKUP;
-              }
-              lsm9ds1_stop_gyro_integration();
-              lsm9ds1_start_gyro_integration();
-              saved_angle = turn_angle;
-              wait_count = 0;
-              drive_cautious = 0;
-              arrived = 0;
-
-            //just keep waiting
-            } else {
-              kobukiDriveDirect(0,0);
-              state = WAIT;
-            }
-            break;            
-          }
-        }
-        break;
+				// successfully picked up object, will wait for next angle
+				} else {
+					//Fully raised
+					nrf_delay_ms(30);
+					while(app_pwm_channel_duty_set(&PWM1, 1, 5) == NRF_ERROR_BUSY);
+					nrf_delay_ms(30);
+					kobukiSensorPoll(&sensors);
+					lowered = false;
+					ready = 0;
+					drive_cautious = 0;
+					arrived = 0;
+					retry_grab = false;
+					picked = true; // SEND TO CAMERA
+					update_picked();
+					wait_case = READY;
+					state = WAIT;
+				}
+				break;
 			}
-    }
-  }
-}
 
-	    
+			// case to drop an object
+			case DROP: {
+				//Fully open
+				while(app_pwm_channel_duty_set(&PWM1, 0, 3) == NRF_ERROR_BUSY);
+				nrf_delay_ms(30);
+				kobukiSensorPoll(&sensors);
+				picked = false;
+				update_picked();
+				ready = 0;
+				drive_cautious = 0;
+				arrived = 0;
+				wait_case = READY;
+				duty_cycle = 4;
+				state = WAIT;
+				break;
+			}
+
+			// wait for a response from central
+			case WAIT: {
+				switch (wait_case) {
+					case DRIVE_WAIT: {
+						if (wait_count > 40) {
+							wait_count = 0;
+							state = DRIVING;
+							starting_value = sensors.rightWheelEncoder;
+							displacement = 0;
+						} else {
+							wait_count++;
+							kobukiDriveDirect(0,0);
+							state = WAIT;
+						}
+						break;
+					}
+
+					case READY: {
+						get_pressure(&pressure);
+						if (picked && pressure < 1) {
+							picked = 0;
+							update_picked();
+							state = BACKUP;
+							retry_grab = true;
+							starting_value2 = sensors.rightWheelEncoder;
+						}
+						//new angle is ready
+						else if (ready && arrived == 0) {
+							if (picked) {
+								state = TURNING;
+							} else {
+								starting_value2 = sensors.rightWheelEncoder;
+								state = BACKUP;
+							}
+							lsm9ds1_stop_gyro_integration();
+							lsm9ds1_start_gyro_integration();
+							saved_angle = turn_angle;
+							wait_count = 0;
+							drive_cautious = 0;
+							arrived = 0;
+
+						//just keep waiting
+						} else {
+							kobukiDriveDirect(0,0);
+							state = WAIT;
+						}
+						break;            
+					}
+				}
+			break;
+			}
+		}
+	}
+}
